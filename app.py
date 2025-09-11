@@ -3,6 +3,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 from database import db
 
@@ -64,6 +65,10 @@ app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
 @app.route('/api/health')
 def health_check():
     return jsonify({'status': 'healthy', 'message': 'Auto Finder API is running'})
+
+@app.route('/test-routing')
+def test_routing():
+    return jsonify({'message': 'Routing is working', 'timestamp': datetime.utcnow().isoformat()})
 
 # Serve React app for all non-API routes
 @app.route('/', defaults={'path': ''})
