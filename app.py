@@ -13,16 +13,21 @@ load_dotenv()
 app = Flask(__name__, static_folder='build', static_url_path='')
 
 # Configuration
-app.config['SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'dev-secret-key')
+jwt_secret = os.getenv('JWT_SECRET_KEY', 'dev-secret-key')
+app.config['SECRET_KEY'] = jwt_secret
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', os.getenv('SQLALCHEMY_DATABASE_URI', 'sqlite:///auto_finder.db'))
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'jwt-secret-string')
+app.config['JWT_SECRET_KEY'] = jwt_secret
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False
 
 # Initialize extensions
 jwt = JWTManager()
 migrate = Migrate()
 CORS(app)
+
+# Debug JWT configuration
+print(f"DEBUG: JWT_SECRET_KEY configured: {app.config['JWT_SECRET_KEY'][:10]}...")
+print(f"DEBUG: JWT_ACCESS_TOKEN_EXPIRES: {app.config['JWT_ACCESS_TOKEN_EXPIRES']}")
 
 # Initialize database
 def init_db():
