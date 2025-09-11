@@ -8,6 +8,27 @@ import json
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
+@dashboard_bp.route('/test', methods=['GET'])
+@jwt_required()
+def test_dashboard():
+    """Test endpoint to debug user data"""
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        return jsonify({
+            'user_id': user_id,
+            'user_exists': user is not None,
+            'has_settings': user.settings is not None,
+            'settings_id': user.settings.id if user.settings else None,
+            'user_email': user.email if user else None
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @dashboard_bp.route('/overview', methods=['GET'])
 @jwt_required()
 def get_dashboard_overview():
@@ -25,6 +46,14 @@ def get_dashboard_overview():
             db.session.add(settings)
             db.session.commit()
             user = User.query.get(user_id)  # Refresh user object
+        
+        # Debug: Check if settings exist and have required attributes
+        if not user.settings:
+            return jsonify({'error': 'Settings still not found after creation'}), 500
+        
+        # Check if settings have required attributes
+        if not hasattr(user.settings, 'min_price'):
+            return jsonify({'error': 'Settings missing required attributes'}), 500
         
         # Get base query with user filters
         query = CarListing.query
