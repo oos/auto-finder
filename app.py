@@ -26,15 +26,7 @@ jwt = JWTManager()
 migrate = Migrate()
 CORS(app)
 
-# JWT configuration
-@jwt.user_identity_loader
-def user_identity_lookup(user):
-    return str(user)
-
-@jwt.user_lookup_loader
-def user_lookup_callback(_jwt_header, jwt_data):
-    identity = jwt_data["sub"]
-    return int(identity)
+# JWT configuration - let Flask-JWT-Extended handle defaults
 
 # Debug JWT configuration
 print(f"DEBUG: JWT_SECRET_KEY configured: {app.config['JWT_SECRET_KEY'][:10]}...")
