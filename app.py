@@ -97,11 +97,12 @@ def serve_react_app(path):
     print(f"DEBUG: Index.html path: {index_path}")
     print(f"DEBUG: Index.html exists: {os.path.exists(index_path)}")
     print(f"DEBUG: Serving index.html for path: {path}")
-    return send_from_directory(app.static_folder, 'index.html')
-
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({'error': 'Not found'}), 404
+    
+    if os.path.exists(index_path):
+        return send_from_directory(app.static_folder, 'index.html')
+    else:
+        print(f"DEBUG: Index.html not found, returning 404")
+        return jsonify({'error': 'React app not built'}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
