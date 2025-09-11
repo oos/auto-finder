@@ -107,6 +107,19 @@ def test_jwt():
             'jwt_secret_type': type(app.config['JWT_SECRET_KEY']).__name__
         })
 
+# Explicit routes for common client-side paths to ensure they work
+@app.route('/dashboard')
+def serve_dashboard():
+    return serve_react_app('dashboard')
+
+@app.route('/login')
+def serve_login():
+    return serve_react_app('login')
+
+@app.route('/register')
+def serve_register():
+    return serve_react_app('register')
+
 # Serve React app for all non-API routes
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
