@@ -70,6 +70,8 @@ def health_check():
 @app.route('/<path:path>')
 def serve_react_app(path):
     print(f"DEBUG: Serving path: '{path}'")
+    print(f"DEBUG: Static folder: {app.static_folder}")
+    print(f"DEBUG: Static folder exists: {os.path.exists(app.static_folder)}")
     
     # Don't serve React app for API routes
     if path.startswith('api/'):
@@ -86,6 +88,9 @@ def serve_react_app(path):
     
     # For all other routes (including /dashboard, /login, etc.), serve index.html
     # This allows React Router to handle client-side routing
+    index_path = os.path.join(app.static_folder, 'index.html')
+    print(f"DEBUG: Index.html path: {index_path}")
+    print(f"DEBUG: Index.html exists: {os.path.exists(index_path)}")
     print(f"DEBUG: Serving index.html for path: {path}")
     return send_from_directory(app.static_folder, 'index.html')
 
