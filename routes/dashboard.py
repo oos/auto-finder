@@ -58,8 +58,11 @@ def test_dashboard():
 @jwt_required()
 def get_dashboard_overview():
     try:
+        print(f"DEBUG: dashboard/overview called")
         user_id = get_jwt_identity()
+        print(f"DEBUG: user_id from token: {user_id}")
         user = User.query.get(user_id)
+        print(f"DEBUG: user found: {user is not None}")
         
         if not user:
             return jsonify({'error': 'User not found'}), 404

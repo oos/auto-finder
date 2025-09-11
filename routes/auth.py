@@ -186,16 +186,22 @@ def change_password():
 @jwt_required()
 def verify_token():
     try:
+        print(f"DEBUG: verify-token called")
         user_id = get_jwt_identity()
+        print(f"DEBUG: user_id from token: {user_id}")
         user = User.query.get(user_id)
+        print(f"DEBUG: user found: {user is not None}")
         
         if not user or not user.is_active:
+            print(f"DEBUG: user not found or inactive")
             return jsonify({'error': 'Invalid token'}), 401
         
+        print(f"DEBUG: returning user data")
         return jsonify({
             'valid': True,
             'user': user.to_dict()
         }), 200
         
     except Exception as e:
+        print(f"DEBUG: verify-token error: {str(e)}")
         return jsonify({'error': str(e)}), 500
