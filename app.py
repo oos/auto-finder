@@ -107,19 +107,6 @@ def test_jwt():
             'jwt_secret_type': type(app.config['JWT_SECRET_KEY']).__name__
         })
 
-# Explicit routes for common client-side paths
-@app.route('/dashboard')
-def serve_dashboard():
-    return serve_react_app('dashboard')
-
-@app.route('/login')
-def serve_login():
-    return serve_react_app('login')
-
-@app.route('/register')
-def serve_register():
-    return serve_react_app('register')
-
 # Serve React app for all non-API routes
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -128,13 +115,13 @@ def serve_react_app(path):
     print(f"DEBUG: Static folder: {app.static_folder}")
     print(f"DEBUG: Static folder exists: {os.path.exists(app.static_folder)}")
     
-    # Don't serve React app for API routes
-    if path.startswith('api/'):
-        print(f"DEBUG: API route detected, returning 404")
+    # Don't serve React app for API routes or test routes
+    if path.startswith('api/') or path.startswith('test-'):
+        print(f"DEBUG: API/test route detected, returning 404")
         return jsonify({'error': 'Not found'}), 404
     
     # Check if it's a static file (JS, CSS, images, etc.)
-    if path and not path.startswith('api/'):
+    if path and '.' in path:
         static_file_path = os.path.join(app.static_folder, path)
         print(f"DEBUG: Checking static file: {static_file_path}")
         if os.path.exists(static_file_path):
@@ -148,9 +135,9 @@ def serve_react_app(path):
     print(f"DEBUG: Index.html exists: {os.path.exists(index_path)}")
     print(f"DEBUG: Serving index.html for path: {path}")
     
-    if os.path.exists(index_path):
+    try:
         return send_from_directory(app.static_folder, 'index.html')
-    else:
+    except FileNotFoundError:
         print(f"DEBUG: Index.html not found, returning 404")
         return jsonify({'error': 'React app not built'}), 404
 
