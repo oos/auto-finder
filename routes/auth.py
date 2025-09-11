@@ -204,4 +204,7 @@ def verify_token():
         
     except Exception as e:
         print(f"DEBUG: verify-token error: {str(e)}")
+        print(f"DEBUG: Exception type: {type(e)}")
+        import traceback
+        print(f"DEBUG: Traceback: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
