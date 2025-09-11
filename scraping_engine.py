@@ -12,7 +12,8 @@ import imagehash
 from PIL import Image
 from io import BytesIO
 from fake_useragent import UserAgent
-from models import db, CarListing, ScrapeLog, User, UserSettings
+from database import db
+from models import CarListing, ScrapeLog, User, UserSettings
 from datetime import datetime, timedelta
 import json
 import re

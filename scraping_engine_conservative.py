@@ -12,7 +12,8 @@ import random
 import hashlib
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
-from models import db, CarListing, ScrapeLog, User, UserSettings
+from database import db
+from models import CarListing, ScrapeLog, User, UserSettings
 from datetime import datetime, timedelta
 import json
 import re

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, User, CarListing, Blacklist
+from database import db
+from models import User, CarListing, Blacklist
 from sqlalchemy import and_, or_, desc, asc, func
 from datetime import datetime, timedelta
 import json

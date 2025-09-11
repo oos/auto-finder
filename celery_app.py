@@ -54,7 +54,8 @@ def run_conservative_scraping(self):
         
         with app.app_context():
             from scraping_engine_conservative import ConservativeCarScrapingEngine
-            from models import db, ScrapeLog
+            from database import db
+from models import ScrapeLog
             
             # Log the start of conservative scraping
             scrape_log = ScrapeLog(
@@ -112,7 +113,8 @@ def run_daily_scraping(self):
     """Run daily scraping for all active users"""
     try:
         from scraping_engine import CarScrapingEngine
-        from models import db, User, ScrapeLog
+        from database import db
+from models import User, ScrapeLog
         from app import app
         
         with app.app_context():
@@ -190,7 +192,8 @@ def cleanup_old_data(self):
         app = create_app()
         
         with app.app_context():
-            from models import db, ScrapeLog, EmailLog, CarListing
+            from database import db
+from models import ScrapeLog, EmailLog, CarListing
             from datetime import datetime, timedelta
             # Keep only last 30 days of scrape logs
             cutoff_date = datetime.utcnow() - timedelta(days=30)
@@ -225,7 +228,8 @@ def run_manual_scraping(self, user_id=None):
     """Run manual scraping for a specific user or all users"""
     try:
         from scraping_engine import CarScrapingEngine
-        from models import db, User
+        from database import db
+from models import User
         from app import app
         
         with app.app_context():

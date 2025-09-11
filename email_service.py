@@ -1,7 +1,8 @@
 import os
 import sendgrid
 from sendgrid.helpers.mail import Mail, Email, To, Content
-from models import db, User, CarListing, EmailLog
+from database import db
+from models import User, CarListing, EmailLog
 from datetime import datetime, timedelta
 import logging
 
