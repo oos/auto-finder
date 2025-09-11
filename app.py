@@ -29,7 +29,7 @@ CORS(app)
 # JWT configuration
 @jwt.user_identity_loader
 def user_identity_lookup(user):
-    return str(user)
+    return user
 
 @jwt.user_lookup_loader
 def user_lookup_callback(_jwt_header, jwt_data):
