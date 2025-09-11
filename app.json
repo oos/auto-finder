@@ -1,0 +1,63 @@
+{
+  "name": "Auto Finder API",
+  "description": "Used car deal tracker API",
+  "repository": "https://github.com/yourusername/auto-finder",
+  "logo": "https://via.placeholder.com/150x150/2c3e50/ffffff?text=AF",
+  "keywords": ["flask", "python", "car", "scraping", "deals"],
+  "success_url": "/api/health",
+  "scripts": {
+    "postdeploy": "python -c 'from app import app, db; app.app_context().push(); db.create_all()'"
+  },
+  "env": {
+    "JWT_SECRET_KEY": {
+      "description": "Secret key for JWT tokens",
+      "generator": "secret"
+    },
+    "SENDGRID_API_KEY": {
+      "description": "SendGrid API key for email notifications"
+    },
+    "FROM_EMAIL": {
+      "description": "From email address for notifications",
+      "value": "noreply@autofinder.com"
+    },
+    "FLASK_ENV": {
+      "description": "Flask environment",
+      "value": "production"
+    },
+    "FLASK_DEBUG": {
+      "description": "Flask debug mode",
+      "value": "False"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    },
+    "worker": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:hobby-dev",
+      "as": "DATABASE"
+    },
+    {
+      "plan": "heroku-redis:hobby-dev",
+      "as": "REDIS"
+    }
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    },
+    {
+      "url": "https://github.com/heroku/heroku-buildpack-chromedriver"
+    },
+    {
+      "url": "https://github.com/heroku/heroku-buildpack-google-chrome"
+    }
+  ]
+}

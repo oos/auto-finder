@@ -1,0 +1,196 @@
+Used Car Deal Tracker — Business Logic Overview
+🎯 Goal
+
+To automate the daily tracking, filtering, scoring, and alerting of second-hand car listings from multiple Irish websites, surfacing only the best-value deals within user-defined preferences.
+
+🔍 Key User Requirements
+
+Only show cars within a set price range (e.g. €5k–€15k)
+
+Must be located within Leinster province
+
+Exclude a dynamic list of blacklisted car models
+
+Show only non-duplicate listings across platforms
+
+Detect price drops and changes in listing status
+
+Calculate a Deal Score for every listing using weights from a Google Sheet
+
+Send a daily email summary with a scrape overview and top 20 listings
+
+Upload all results to Google Sheets for Looker Studio dashboards
+
+Be fully automated and block-resistant
+
+📚 Input Sources
+1. Used Car Websites
+
+ Carzone.ie
+
+ DoneDeal.ie
+
+ Adverts.ie
+
+ CarsIreland.ie
+
+2. Google Sheets
+
+Settings: Price range, max pages, min deal score, site toggles
+
+Blacklist: Car model keywords to ignore
+
+Locations: Whitelisted counties (typically Leinster)
+
+Weights: Deal scoring configuration
+
+🧠 Core Logic Flow
+1. Per-Site Scraping
+
+Each site is scraped using:
+
+undetected-chromedriver with user-agent rotation
+
+Retry with exponential backoff
+
+Per-site HTML parsing logic
+
+Configurable page limits
+
+2. Initial Filtering
+
+For each listing:
+
+Parse: title, price, location, url, image, date
+
+Exclude if:
+
+Price not in [min_price, max_price]
+
+Location not in approved_locations
+
+Title matches blacklisted model
+
+Already scraped from another platform (based on title, price, location)
+
+3. Duplicate Detection
+
+Across all platforms:
+
+Compare listings using:
+
+Title similarity (SequenceMatcher)
+
+Price difference within ±€50
+
+Optional: image hash match
+
+Flag Is Duplicate = Yes if similar
+
+4. Listing History Tracking
+
+Match against existing master CSV by URL:
+
+If new → mark First Seen Date
+
+If seen before → update Last Seen Date
+
+If previously seen but not in today’s scrape → mark Status = removed
+
+Track Previous Price and Price Dropped = Yes/No
+
+📊 Deal Scoring Logic
+
+Pulled from Google Sheets config (weights must total 100).
+Each listing is scored on:
+
+Criterion	Description
+Price vs Market Value	Lower price = higher score
+Mileage vs Year	Newer + lower mileage = higher
+CO2/Tax Band	Lower tax = higher
+Popularity / Rarity	Less common model = higher
+Price Dropped?	Score bonus if dropped recently
+Location Match	Score bonus for Leinster-only
+Listing Freshness	Newer listing = higher score
+
+The result is a Deal Score (0–100).
+
+📬 Email Alerts Logic
+
+At end of scrape, filter listings with Deal Score >= X (from settings)
+
+Take top 20 by score
+
+Build and send one email per day
+
+Fixed subject: "New Matching Used Car Deals [Auto Tracker]"
+
+Includes:
+
+Summary (total listings scraped, per-site breakdown, blocks)
+
+List of top 20: Title, Price, Deal Score, Link
+
+📊 Looker Studio
+
+Upload full master CSV to Google Sheets daily
+
+Connect to Looker Studio dashboard
+
+Dash includes:
+
+Filters for price, score, make, location, status
+
+Trendlines for new listings per day
+
+Table of all active listings
+
+Charts for average deal score by site, price bracket, fuel type, etc.
+
+🗂 Files Generated Daily
+File Name	Description
+used_car_listings_master.csv	Full listing history with all fields
+used_car_scraper_summary_YYYY-MM-DD.csv	Site-level scrape summary
+top_20_email_digest.html	Daily email preview
+☁️ Deployment & Automation
+
+Hosted on Render or GitHub Actions
+
+Daily scheduled runs
+
+Google credentials + Gmail auth stored securely
+
+Logs and errors written to local files or email
+
+🛡 Anti-Blocking Features
+
+undetected-chromedriver
+
+Headless browser emulation
+
+User-agent rotation (fake-useragent)
+
+Randomised delays between requests
+
+Retry logic with exponential backoff
+
+Captcha/redirect detection → flag as "Blocked"
+
+🔄 Extensibility
+
+Easily add:
+
+More sites (same format)
+
+More filters (e.g. NCT expiry)
+
+More scoring criteria (via Sheet)
+
+Telegram, Discord, Slack alerts
+
+API layer for programmatic access
+
+Would you like me to generate a Mermaid diagram to visualise this?
+Or anything you'd like to tweak before we lock in delivery?
+
+ChatGPT can make mistakes. Check important info. See Cookie Preferences.

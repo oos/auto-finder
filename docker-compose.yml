@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/auto_finder
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=your-secret-key-here
+      - SENDGRID_API_KEY=your-sendgrid-key
+      - FROM_EMAIL=noreply@autofinder.com
+      - FLASK_ENV=production
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./logs:/app/logs
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=auto_finder
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
