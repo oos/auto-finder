@@ -19,8 +19,10 @@ export const AuthProvider = ({ children }) => {
   // Configure axios defaults
   useEffect(() => {
     const token = localStorage.getItem('token');
+    console.log('DEBUG: Token from localStorage:', token ? 'exists' : 'missing');
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      console.log('DEBUG: Authorization header set:', `Bearer ${token.substring(0, 20)}...`);
     }
   }, []);
 
@@ -28,11 +30,15 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
+      console.log('DEBUG: checkAuth - token exists:', !!token);
       if (token) {
         try {
+          console.log('DEBUG: Making verify-token request...');
           const response = await axios.post('/api/auth/verify-token');
+          console.log('DEBUG: verify-token response:', response.data);
           setUser(response.data.user);
         } catch (error) {
+          console.log('DEBUG: verify-token error:', error.response?.data || error.message);
           localStorage.removeItem('token');
           delete axios.defaults.headers.common['Authorization'];
         }
