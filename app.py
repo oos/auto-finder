@@ -64,16 +64,24 @@ def health_check():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_react_app(path):
+    print(f"DEBUG: Serving path: '{path}'")
+    
     # Don't serve React app for API routes
     if path.startswith('api/'):
+        print(f"DEBUG: API route detected, returning 404")
         return jsonify({'error': 'Not found'}), 404
     
     # Check if it's a static file (JS, CSS, images, etc.)
-    if path and not path.startswith('api/') and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
+    if path and not path.startswith('api/'):
+        static_file_path = os.path.join(app.static_folder, path)
+        print(f"DEBUG: Checking static file: {static_file_path}")
+        if os.path.exists(static_file_path):
+            print(f"DEBUG: Serving static file: {path}")
+            return send_from_directory(app.static_folder, path)
     
     # For all other routes (including /dashboard, /login, etc.), serve index.html
     # This allows React Router to handle client-side routing
+    print(f"DEBUG: Serving index.html for path: {path}")
     return send_from_directory(app.static_folder, 'index.html')
 
 @app.errorhandler(404)
