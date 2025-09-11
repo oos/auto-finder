@@ -14,7 +14,7 @@ app = Flask(__name__, static_folder='build', static_url_path='')
 
 # Configuration
 app.config['SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'dev-secret-key')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI', 'sqlite:///auto_finder.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', os.getenv('SQLALCHEMY_DATABASE_URI', 'sqlite:///auto_finder.db'))
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'jwt-secret-string')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False
@@ -24,6 +24,19 @@ db = SQLAlchemy(app)
 jwt = JWTManager(app)
 migrate = Migrate(app, db)
 CORS(app)
+
+# Initialize database
+def init_db():
+    """Initialize the database with all tables"""
+    with app.app_context():
+        try:
+            db.create_all()
+            print("Database tables created successfully")
+        except Exception as e:
+            print(f"Error creating database tables: {e}")
+
+# Initialize database on startup
+init_db()
 
 # Import models and routes
 from models import *
