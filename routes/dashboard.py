@@ -15,16 +15,28 @@ def get_dashboard_overview():
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
         
-        if not user or not user.settings:
-            return jsonify({'error': 'User or settings not found'}), 404
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Create settings if they don't exist
+        if not user.settings:
+            from models import UserSettings
+            settings = UserSettings(user_id=user.id)
+            db.session.add(settings)
+            db.session.commit()
+            user = User.query.get(user_id)  # Refresh user object
         
         # Get base query with user filters
         query = CarListing.query
         
         # Apply user's blacklist
-        blacklist_keywords = [item.keyword for item in user.blacklists]
-        for keyword in blacklist_keywords:
-            query = query.filter(~CarListing.title.ilike(f'%{keyword}%'))
+        try:
+            blacklist_keywords = [item.keyword for item in user.blacklists]
+            for keyword in blacklist_keywords:
+                query = query.filter(~CarListing.title.ilike(f'%{keyword}%'))
+        except Exception as e:
+            print(f"Error accessing blacklists: {e}")
+            blacklist_keywords = []
         
         # Apply user's price range
         query = query.filter(
