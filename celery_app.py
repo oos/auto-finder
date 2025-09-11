@@ -9,6 +9,11 @@ load_dotenv()
 # Create Celery instance
 celery_app = Celery('auto_finder')
 
+# Import Flask app and initialize it properly
+def create_app():
+    from app import app
+    return app
+
 # Configure Celery
 celery_app.conf.update(
     broker_url=os.getenv('REDIS_URL', 'redis://localhost:6379/0'),
@@ -19,23 +24,85 @@ celery_app.conf.update(
     timezone='UTC',
     enable_utc=True,
     beat_schedule={
-        # Daily scraping at 6 AM UTC
-        'daily-scraping': {
-            'task': 'celery_app.run_daily_scraping',
-            'schedule': crontab(hour=6, minute=0),
+        # Conservative scraping - only 3 times per week (Mon, Wed, Fri at 8 AM UTC)
+        'conservative-scraping': {
+            'task': 'celery_app.run_conservative_scraping',
+            'schedule': crontab(hour=8, minute=0, day_of_week='1,3,5'),  # Mon, Wed, Fri
         },
-        # Send daily emails at 9 AM UTC
-        'daily-email-notifications': {
-            'task': 'celery_app.send_daily_emails',
-            'schedule': crontab(hour=9, minute=0),
+        # Send weekly emails (Fridays at 10 AM UTC)
+        'weekly-email-notifications': {
+            'task': 'celery_app.send_weekly_emails',
+            'schedule': crontab(hour=10, minute=0, day_of_week=5),  # Friday
         },
-        # Clean up old data weekly
-        'weekly-cleanup': {
+        # Clean up old data monthly
+        'monthly-cleanup': {
             'task': 'celery_app.cleanup_old_data',
-            'schedule': crontab(hour=2, minute=0, day_of_week=1),  # Monday at 2 AM
+            'schedule': crontab(hour=2, minute=0, day=1),  # 1st of each month at 2 AM
         },
     }
 )
+
+@celery_app.task(bind=True)
+def run_conservative_scraping(self):
+    """Run conservative scraping - very slow and respectful"""
+    try:
+        # Create Flask app with proper context
+        app = create_app()
+        
+        with app.app_context():
+            from scraping_engine_conservative import ConservativeCarScrapingEngine
+            from models import db, ScrapeLog
+            
+            # Log the start of conservative scraping
+            scrape_log = ScrapeLog(
+                site_name='conservative_scrape',
+                status='running',
+                started_at=db.func.now()
+            )
+            db.session.add(scrape_log)
+            db.session.commit()
+            
+            try:
+                # Run conservative scraping
+                engine = ConservativeCarScrapingEngine()
+                
+                # Get default user settings
+                default_settings = {
+                    'min_price': 5000,
+                    'max_price': 15000,
+                    'blacklist': []
+                }
+                
+                # Run conservative scrape
+                listings = engine.run_conservative_scrape(default_settings)
+                
+                # Save listings
+                engine.save_listings(listings)
+                
+                # Log session
+                engine.log_scrape_session(len(listings), 2)
+                
+                result = f"Conservative scrape complete: {len(listings)} listings found"
+                
+                # Update log
+                scrape_log.status = 'completed'
+                scrape_log.completed_at = db.func.now()
+                scrape_log.notes = result
+                
+                return f"Conservative scraping completed: {result}"
+                
+            except Exception as e:
+                # Update log with error
+                scrape_log.status = 'failed'
+                scrape_log.completed_at = db.func.now()
+                scrape_log.errors = str(e)
+                return f"Conservative scraping failed: {str(e)}"
+            
+            finally:
+                db.session.commit()
+            
+    except Exception as e:
+        return f"Conservative scraping task failed: {str(e)}"
 
 @celery_app.task(bind=True)
 def run_daily_scraping(self):
@@ -94,31 +161,34 @@ def run_daily_scraping(self):
         return f"Daily scraping failed: {str(e)}"
 
 @celery_app.task(bind=True)
-def send_daily_emails(self):
-    """Send daily email notifications to all users"""
+def send_weekly_emails(self):
+    """Send weekly email notifications to all users"""
     try:
-        from email_service import EmailService
-        from models import User, UserSettings
-        from app import app
+        # Create Flask app with proper context
+        app = create_app()
         
         with app.app_context():
+            from email_service import EmailService
+            from models import User, UserSettings
+            
             email_service = EmailService()
             success_count = email_service.send_all_daily_summaries()
             
-            return f"Daily emails sent to {success_count} users"
+            return f"Weekly emails sent to {success_count} users"
             
     except Exception as e:
-        return f"Daily email sending failed: {str(e)}"
+        return f"Weekly email sending failed: {str(e)}"
 
 @celery_app.task(bind=True)
 def cleanup_old_data(self):
     """Clean up old data to keep database size manageable"""
     try:
-        from models import db, ScrapeLog, EmailLog, CarListing
-        from datetime import datetime, timedelta
-        from app import app
+        # Create Flask app with proper context
+        app = create_app()
         
         with app.app_context():
+            from models import db, ScrapeLog, EmailLog, CarListing
+            from datetime import datetime, timedelta
             # Keep only last 30 days of scrape logs
             cutoff_date = datetime.utcnow() - timedelta(days=30)
             old_logs = ScrapeLog.query.filter(ScrapeLog.started_at < cutoff_date).all()
