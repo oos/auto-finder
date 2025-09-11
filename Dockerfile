@@ -26,7 +26,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend code
 COPY app.py .
 COPY models.py .
+COPY database.py .
 COPY scraping_engine.py .
+COPY scraping_engine_conservative.py .
 COPY email_service.py .
 COPY celery_app.py .
 COPY logging_config.py .
