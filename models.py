@@ -1,10 +1,8 @@
-from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import create_access_token
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import json
-
-db = SQLAlchemy()
+from database import db
 
 class User(db.Model):
     __tablename__ = 'users'

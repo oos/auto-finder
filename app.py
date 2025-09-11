@@ -1,10 +1,10 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 import os
 from dotenv import load_dotenv
+from database import db
 
 # Load environment variables
 load_dotenv()
@@ -20,14 +20,17 @@ app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'jwt-secret-string')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False
 
 # Initialize extensions
-db = SQLAlchemy(app)
-jwt = JWTManager(app)
-migrate = Migrate(app, db)
+jwt = JWTManager()
+migrate = Migrate()
 CORS(app)
 
 # Initialize database
 def init_db():
     """Initialize the database with all tables"""
+    db.init_app(app)
+    jwt.init_app(app)
+    migrate.init_app(app, db)
+    
     with app.app_context():
         try:
             db.create_all()
@@ -38,7 +41,7 @@ def init_db():
 # Initialize database on startup
 init_db()
 
-# Import models and routes
+# Import models and routes AFTER db is initialized
 from models import *
 from routes.auth import auth_bp
 from routes.listings import listings_bp

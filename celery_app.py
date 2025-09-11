@@ -14,6 +14,9 @@ def create_app():
     from app import app
     return app
 
+# Import database
+from database import db
+
 # Configure Celery
 celery_app.conf.update(
     broker_url=os.getenv('REDIS_URL', 'redis://localhost:6379/0'),
