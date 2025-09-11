@@ -8,6 +8,31 @@ import json
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
+@dashboard_bp.route('/health', methods=['GET'])
+def health_check():
+    """Simple health check without authentication"""
+    try:
+        from database import db
+        from models import User, UserSettings, CarListing
+        
+        # Test database connection
+        user_count = User.query.count()
+        settings_count = UserSettings.query.count()
+        listings_count = CarListing.query.count()
+        
+        return jsonify({
+            'status': 'healthy',
+            'database_connected': True,
+            'user_count': user_count,
+            'settings_count': settings_count,
+            'listings_count': listings_count
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+
 @dashboard_bp.route('/test', methods=['GET'])
 @jwt_required()
 def test_dashboard():
