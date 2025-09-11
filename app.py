@@ -70,6 +70,33 @@ def health_check():
 def test_routing():
     return jsonify({'message': 'Routing is working', 'timestamp': datetime.utcnow().isoformat()})
 
+@app.route('/test-jwt')
+def test_jwt():
+    from flask_jwt_extended import create_access_token, decode_token
+    try:
+        # Test creating a token
+        test_token = create_access_token(identity=1)
+        
+        # Test decoding the token
+        decoded = decode_token(test_token)
+        
+        return jsonify({
+            'message': 'JWT test successful',
+            'token_created': True,
+            'token_decoded': True,
+            'decoded_subject': decoded.get('sub'),
+            'jwt_secret_length': len(app.config['JWT_SECRET_KEY']),
+            'jwt_secret_type': type(app.config['JWT_SECRET_KEY']).__name__
+        })
+    except Exception as e:
+        return jsonify({
+            'message': 'JWT test failed',
+            'error': str(e),
+            'error_type': type(e).__name__,
+            'jwt_secret_length': len(app.config['JWT_SECRET_KEY']),
+            'jwt_secret_type': type(app.config['JWT_SECRET_KEY']).__name__
+        })
+
 # Serve React app for all non-API routes
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
