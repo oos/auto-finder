@@ -96,7 +96,7 @@ def login():
 @jwt_required()
 def get_profile():
     try:
-        user_id = int(get_jwt_identity())
+        user_id = get_jwt_identity()
         user = User.query.get(user_id)
         
         if not user:
@@ -114,7 +114,7 @@ def get_profile():
 @jwt_required()
 def update_profile():
     try:
-        user_id = int(get_jwt_identity())
+        user_id = get_jwt_identity()
         user = User.query.get(user_id)
         
         if not user:
@@ -152,7 +152,7 @@ def update_profile():
 @jwt_required()
 def change_password():
     try:
-        user_id = int(get_jwt_identity())
+        user_id = get_jwt_identity()
         user = User.query.get(user_id)
         
         if not user:
@@ -187,7 +187,7 @@ def change_password():
 def verify_token():
     try:
         print(f"DEBUG: verify-token called")
-        user_id = int(get_jwt_identity())
+        user_id = get_jwt_identity()
         print(f"DEBUG: user_id from token: {user_id}")
         user = User.query.get(user_id)
         print(f"DEBUG: user found: {user is not None}")
