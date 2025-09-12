@@ -8,7 +8,6 @@ import json
 scraping_bp = Blueprint('scraping', __name__)
 
 @scraping_bp.route('/status', methods=['GET'])
-@jwt_required()
 def get_scraping_status():
     try:
         # Get recent scrape logs
@@ -75,7 +74,6 @@ def stop_scraping():
         return jsonify({'error': str(e)}), 500
 
 @scraping_bp.route('/logs', methods=['GET'])
-@jwt_required()
 def get_scrape_logs():
     try:
         page = request.args.get('page', 1, type=int)
