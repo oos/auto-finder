@@ -118,6 +118,149 @@ def serve_spa(path):
         except FileNotFoundError:
             return jsonify({'error': 'Static file not found'}), 404
     
+@app.route('/api/setup-sample-data', methods=['POST'])
+def setup_sample_data():
+    """Setup sample data for testing - no authentication required"""
+    try:
+        from models import User, UserSettings, CarListing
+        from sqlalchemy import or_
+        import random
+        
+        # Check if listings already exist
+        existing_count = CarListing.query.count()
+        if existing_count > 0:
+            return jsonify({
+                'message': 'Sample data already exists',
+                'existing_listings': existing_count
+            }), 200
+        
+        # Add sample listings
+        makes = ['Toyota', 'Ford', 'Volkswagen', 'BMW', 'Mercedes', 'Audi', 'Nissan', 'Honda', 'Hyundai', 'Kia']
+        models = ['Corolla', 'Focus', 'Golf', '3 Series', 'C-Class', 'A4', 'Qashqai', 'Civic', 'i30', 'Ceed']
+        locations = ['Dublin', 'Cork', 'Galway', 'Limerick', 'Waterford', 'Wexford', 'Kilkenny', 'Sligo', 'Donegal', 'Mayo']
+        fuel_types = ['Petrol', 'Diesel', 'Hybrid', 'Electric']
+        transmissions = ['Manual', 'Automatic']
+        
+        listings_added = 0
+        
+        for i in range(25):
+            make = random.choice(makes)
+            model = random.choice(models)
+            year = random.randint(2015, 2023)
+            price = random.randint(5000, 25000)
+            location = random.choice(locations)
+            fuel_type = random.choice(fuel_types)
+            transmission = random.choice(transmissions)
+            mileage = random.randint(10000, 150000)
+            
+            listing = CarListing(
+                title=f"{year} {make} {model} {fuel_type} {transmission}",
+                price=price,
+                location=location,
+                url=f"https://example.com/car-{i+1}",
+                image_url=f"https://via.placeholder.com/300x200?text={make}+{model}",
+                image_hash=f"sample_hash_{i+1}",
+                source_site='sample',
+                make=make,
+                model=model,
+                year=year,
+                mileage=mileage,
+                fuel_type=fuel_type,
+                transmission=transmission,
+                deal_score=random.uniform(30, 95),
+                first_seen=datetime.utcnow(),
+                last_seen=datetime.utcnow(),
+                status='active'
+            )
+            
+            db.session.add(listing)
+            listings_added += 1
+        
+        # Fix user settings to be more inclusive
+        users = User.query.all()
+        users_updated = 0
+        
+        for user in users:
+            if user.settings:
+                # Make filters very inclusive
+                user.settings.min_price = 0
+                user.settings.max_price = 100000
+                user.settings.min_deal_score = 0
+                
+                # Set all Irish locations as approved
+                all_locations = [
+                    'Dublin', 'Cork', 'Galway', 'Limerick', 'Waterford', 'Wexford', 
+                    'Kilkenny', 'Sligo', 'Donegal', 'Mayo', 'Kerry', 'Clare', 
+                    'Tipperary', 'Laois', 'Offaly', 'Westmeath', 'Longford', 
+                    'Leitrim', 'Cavan', 'Monaghan', 'Louth', 'Meath', 'Kildare', 
+                    'Wicklow', 'Carlow', 'Leinster', 'Munster', 'Connacht', 'Ulster',
+                    'Ireland', 'Irish', 'All', 'Any'
+                ]
+                
+                user.settings.set_approved_locations(all_locations)
+                users_updated += 1
+            else:
+                # Create settings for user
+                settings = UserSettings(user_id=user.id)
+                settings.min_price = 0
+                settings.max_price = 100000
+                settings.min_deal_score = 0
+                settings.set_approved_locations([
+                    'Dublin', 'Cork', 'Galway', 'Limerick', 'Waterford', 'Wexford', 
+                    'Kilkenny', 'Sligo', 'Donegal', 'Mayo', 'Kerry', 'Clare', 
+                    'Tipperary', 'Laois', 'Offaly', 'Westmeath', 'Longford', 
+                    'Leitrim', 'Cavan', 'Monaghan', 'Louth', 'Meath', 'Kildare', 
+                    'Wicklow', 'Carlow', 'Leinster', 'Munster', 'Connacht', 'Ulster',
+                    'Ireland', 'Irish', 'All', 'Any'
+                ])
+                db.session.add(settings)
+                users_updated += 1
+        
+        # Commit all changes
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Sample data setup completed successfully',
+            'listings_added': listings_added,
+            'users_updated': users_updated,
+            'total_listings': CarListing.query.count()
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clear-dummy-data', methods=['POST'])
+def clear_dummy_data():
+    """Clear dummy/sample data - no authentication required"""
+    try:
+        from models import CarListing
+        
+        # Count existing listings
+        total_listings = CarListing.query.count()
+        sample_listings = CarListing.query.filter_by(source_site='sample').count()
+        
+        if sample_listings == 0:
+            return jsonify({
+                'message': 'No sample listings found to clear',
+                'total_listings': total_listings,
+                'sample_listings': sample_listings
+            }), 200
+        
+        # Delete all sample listings
+        CarListing.query.filter_by(source_site='sample').delete()
+        db.session.commit()
+        
+        remaining_listings = CarListing.query.count()
+        
+        return jsonify({
+            'message': 'Dummy data cleared successfully',
+            'cleared_listings': sample_listings,
+            'remaining_listings': remaining_listings
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
     # For all other routes, serve the React app
     try:
         return send_from_directory(app.static_folder, 'index.html')
@@ -131,4 +274,4 @@ def internal_error(error):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5003)

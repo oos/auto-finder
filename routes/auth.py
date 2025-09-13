@@ -97,6 +97,8 @@ def login():
 def get_profile():
     try:
         user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         user = User.query.get(user_id)
         
         if not user:
@@ -115,6 +117,8 @@ def get_profile():
 def update_profile():
     try:
         user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         user = User.query.get(user_id)
         
         if not user:
@@ -153,6 +157,8 @@ def update_profile():
 def change_password():
     try:
         user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         user = User.query.get(user_id)
         
         if not user:
@@ -188,7 +194,9 @@ def verify_token():
     try:
         print(f"DEBUG: verify-token called")
         user_id = get_jwt_identity()
-        print(f"DEBUG: user_id from token: {user_id}")
+        print(f"DEBUG: user_id from token: {user_id} (type: {type(user_id)})")
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         user = User.query.get(user_id)
         print(f"DEBUG: user found: {user is not None}")
         

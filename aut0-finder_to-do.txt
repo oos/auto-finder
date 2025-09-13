@@ -1,27 +1,56 @@
+
+
+https://auto-finder.onrender.com
+
+
+BTW, once we have got his working for cars, I'd like to expand out the same concept but for properties scraping property sites (e.g. myhome.ie, daft.ie, etc) and comparing against user preferences (location, price range, etc)
+
+
+>>>>>>
+
+I don't want this app to get blocked for doing too much scraping and it is not urgent - we can slowly build up the DB, so please make sure we are not being too aggressive and we can ramp it up later
+
+I didn't think that the free tier was the constraint, I thoguht that the frequncy of scraping an external site coud cause a red flag and that is why I asked you to throttle it - do you not think that is neccessary?
+
+No how do we make sure this works, scraping a little bi every day on the free tier since it goes asleep?
+
+
+>>>>>>>>
+
+
 Used Car Deal Tracker — Business Logic Overview
+
 🎯 Goal
 
 To automate the daily tracking, filtering, scoring, and alerting of second-hand car listings from multiple Irish websites, surfacing only the best-value deals within user-defined preferences.
 
+
 🔍 Key User Requirements
 
-Only show cars within a set price range (e.g. €5k–€15k)
+must be a Modern, Multitenanted, Autenticated, Modular, Object-Orientated Flask/React app
 
-Must be located within Leinster province
+Only show cars within a set price range (variable set by the user - default to €5k–€15k)
 
-Exclude a dynamic list of blacklisted car models
+Must be located within a specific geographic regios set by the user (default to Leinster)
 
-Show only non-duplicate listings across platforms
+Exclude a dynamic list of blacklisted car models (set by user on the fly)
+
+Show only de-duplicated listings across all used-car sales platforms and garage websites
 
 Detect price drops and changes in listing status
 
-Calculate a Deal Score for every listing using weights from a Google Sheet
+Calculate a Deal Score for every listing using user-defined weights 
 
-Send a daily email summary with a scrape overview and top 20 listings
+Send a daily email summary with a scrape overview and top 20 listings with links into the app
 
-Upload all results to Google Sheets for Looker Studio dashboards
+Display all results in a dashboard
+
+scrape daily
 
 Be fully automated and block-resistant
+
+
+
 
 📚 Input Sources
 1. Used Car Websites
@@ -34,17 +63,23 @@ Be fully automated and block-resistant
 
  CarsIreland.ie
 
-2. Google Sheets
+2. Used Car Garage websites
+Lewismotors.ie
+
+3. User-Defined Variables
 
 Settings: Price range, max pages, min deal score, site toggles
 
 Blacklist: Car model keywords to ignore
 
-Locations: Whitelisted counties (typically Leinster)
+Locations: Whitelisted counties 
 
 Weights: Deal scoring configuration
 
+
+
 🧠 Core Logic Flow
+
 1. Per-Site Scraping
 
 Each site is scraped using:
@@ -56,6 +91,7 @@ Retry with exponential backoff
 Per-site HTML parsing logic
 
 Configurable page limits
+
 
 2. Initial Filtering
 
@@ -71,7 +107,7 @@ Location not in approved_locations
 
 Title matches blacklisted model
 
-Already scraped from another platform (based on title, price, location)
+
 
 3. Duplicate Detection
 
@@ -83,13 +119,14 @@ Title similarity (SequenceMatcher)
 
 Price difference within ±€50
 
-Optional: image hash match
+image hash match
 
-Flag Is Duplicate = Yes if similar
+Flag Is Duplicate = Yes if similar and group all together into one listing in this app with multiple links t the platforms / websites
+
 
 4. Listing History Tracking
 
-Match against existing master CSV by URL:
+Match against existing master DB entries by URL:
 
 If new → mark First Seen Date
 
@@ -99,9 +136,11 @@ If previously seen but not in today’s scrape → mark Status = removed
 
 Track Previous Price and Price Dropped = Yes/No
 
+
 📊 Deal Scoring Logic
 
-Pulled from Google Sheets config (weights must total 100).
+weights must total 100
+
 Each listing is scored on:
 
 Criterion	Description
@@ -114,6 +153,7 @@ Location Match	Score bonus for Leinster-only
 Listing Freshness	Newer listing = higher score
 
 The result is a Deal Score (0–100).
+
 
 📬 Email Alerts Logic
 
@@ -131,13 +171,9 @@ Summary (total listings scraped, per-site breakdown, blocks)
 
 List of top 20: Title, Price, Deal Score, Link
 
-📊 Looker Studio
 
-Upload full master CSV to Google Sheets daily
 
-Connect to Looker Studio dashboard
-
-Dash includes:
+Dashboard includes:
 
 Filters for price, score, make, location, status
 
@@ -147,20 +183,18 @@ Table of all active listings
 
 Charts for average deal score by site, price bracket, fuel type, etc.
 
-🗂 Files Generated Daily
-File Name	Description
-used_car_listings_master.csv	Full listing history with all fields
-used_car_scraper_summary_YYYY-MM-DD.csv	Site-level scrape summary
-top_20_email_digest.html	Daily email preview
+
+
 ☁️ Deployment & Automation
 
-Hosted on Render or GitHub Actions
+Hosted on Netlify 
 
 Daily scheduled runs
 
-Google credentials + Gmail auth stored securely
 
-Logs and errors written to local files or email
+
+Logs and errors written to Logs
+
 
 🛡 Anti-Blocking Features
 
@@ -176,6 +210,7 @@ Retry logic with exponential backoff
 
 Captcha/redirect detection → flag as "Blocked"
 
+
 🔄 Extensibility
 
 Easily add:
@@ -184,13 +219,9 @@ More sites (same format)
 
 More filters (e.g. NCT expiry)
 
-More scoring criteria (via Sheet)
+More scoring criteria 
 
-Telegram, Discord, Slack alerts
+Whatsapp alerts
 
 API layer for programmatic access
 
-Would you like me to generate a Mermaid diagram to visualise this?
-Or anything you'd like to tweak before we lock in delivery?
-
-ChatGPT can make mistakes. Check important info. See Cookie Preferences.

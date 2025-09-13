@@ -30,6 +30,8 @@ def get_scraping_status():
 def start_scraping():
     try:
         user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         user = User.query.get(user_id)
         
         if not user or not user.settings:
@@ -40,22 +42,89 @@ def start_scraping():
         if running_scrapes > 0:
             return jsonify({'error': 'Scraping is already in progress'}), 409
         
-        # This would typically trigger a background task
-        # For now, we'll just return a success message
-        # In production, you'd use Celery or similar to run this in the background
+        # Create a scrape log entry
+        scrape_log = ScrapeLog(
+            site_name='manual_scrape',
+            status='running',
+            started_at=datetime.utcnow()
+        )
+        db.session.add(scrape_log)
+        db.session.commit()
         
-        return jsonify({
-            'message': 'Scraping started',
-            'note': 'This is a placeholder - actual scraping would be implemented with Celery'
-        }), 200
+        # Import and run the scraping engine
+        try:
+            # Try to import the full scraping engine first
+            try:
+                from scraping_engine import CarScrapingEngine
+                engine_class = CarScrapingEngine
+                engine_type = "full"
+            except ImportError:
+                # Fallback to simple scraping engine
+                from scraping_engine_simple import SimpleCarScrapingEngine
+                engine_class = SimpleCarScrapingEngine
+                engine_type = "simple"
+            
+            # Run scraping in a separate thread to avoid blocking the API
+            import threading
+            
+            def run_scraping():
+                from app import app
+                with app.app_context():
+                    try:
+                        engine = engine_class()
+                        listings = engine.run_full_scrape(user_id)
+                        
+                        # Update scrape log
+                        scrape_log.status = 'completed'
+                        scrape_log.completed_at = datetime.utcnow()
+                        scrape_log.listings_found = len(listings) if listings else 0
+                        scrape_log.notes = f'Scraping completed successfully using {engine_type} engine. Found {len(listings) if listings else 0} listings.'
+                        
+                    except Exception as e:
+                        # Update scrape log with error
+                        scrape_log.status = 'failed'
+                        scrape_log.completed_at = datetime.utcnow()
+                        scrape_log.errors = str(e)
+                        scrape_log.notes = f'Scraping failed using {engine_type} engine: {str(e)}'
+                    
+                    finally:
+                        db.session.commit()
+            
+            # Start scraping in background thread
+            scraping_thread = threading.Thread(target=run_scraping)
+            scraping_thread.daemon = True
+            scraping_thread.start()
+            
+            return jsonify({
+                'message': f'Scraping started successfully using {engine_type} engine',
+                'scrape_log_id': scrape_log.id,
+                'engine_type': engine_type
+            }), 200
+            
+        except ImportError as e:
+            # Fallback if no scraping engine is available
+            scrape_log.status = 'failed'
+            scrape_log.completed_at = datetime.utcnow()
+            scrape_log.errors = f'No scraping engine available: {str(e)}'
+            db.session.commit()
+            
+            return jsonify({
+                'error': 'No scraping engine available',
+                'details': str(e)
+            }), 500
         
     except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 @scraping_bp.route('/stop', methods=['POST'])
 @jwt_required()
 def stop_scraping():
     try:
+        user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
+        
         # Mark all running scrapes as stopped
         running_scrapes = ScrapeLog.query.filter_by(status='running').all()
         
@@ -105,6 +174,10 @@ def get_scrape_logs():
 @jwt_required()
 def get_scrape_log(log_id):
     try:
+        user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
+        
         log = ScrapeLog.query.get(log_id)
         
         if not log:

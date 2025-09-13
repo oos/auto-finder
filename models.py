@@ -27,7 +27,7 @@ class User(db.Model):
         return check_password_hash(self.password_hash, password)
     
     def generate_token(self):
-        return create_access_token(identity=self.id)
+        return create_access_token(identity=str(self.id))
     
     def to_dict(self):
         return {
@@ -224,6 +224,7 @@ class ScrapeLog(db.Model):
     listings_removed = db.Column(db.Integer, default=0)
     pages_scraped = db.Column(db.Integer, default=0)
     errors = db.Column(db.Text)  # JSON array of errors
+    notes = db.Column(db.Text)  # Additional notes about the scraping session
     is_blocked = db.Column(db.Boolean, default=False)
     
     def to_dict(self):
@@ -239,6 +240,7 @@ class ScrapeLog(db.Model):
             'listings_removed': self.listings_removed,
             'pages_scraped': self.pages_scraped,
             'errors': json.loads(self.errors) if self.errors else [],
+            'notes': self.notes,
             'is_blocked': self.is_blocked
         }
 

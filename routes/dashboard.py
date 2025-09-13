@@ -39,6 +39,8 @@ def test_dashboard():
     """Test endpoint to debug user data"""
     try:
         user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         user = User.query.get(user_id)
         
         if not user:

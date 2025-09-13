@@ -38,6 +38,8 @@ def get_settings():
 def update_settings():
     try:
         user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         user = User.query.get(user_id)
         
         if not user:
@@ -163,6 +165,8 @@ def remove_blacklist_item(item_id):
     try:
         user_id = get_jwt_identity()
         
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         blacklist_item = Blacklist.query.filter_by(id=item_id, user_id=user_id).first()
         if not blacklist_item:
             return jsonify({'error': 'Blacklist item not found'}), 404
@@ -182,6 +186,8 @@ def get_blacklist():
     try:
         user_id = get_jwt_identity()
         
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         blacklist_items = Blacklist.query.filter_by(user_id=user_id).order_by(Blacklist.created_at.desc()).all()
         
         return jsonify({
@@ -196,6 +202,8 @@ def get_blacklist():
 def reset_weights():
     try:
         user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         user = User.query.get(user_id)
         
         if not user or not user.settings:
@@ -222,4 +230,48 @@ def reset_weights():
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@settings_bp.route('/fix-filters', methods=['POST'])
+def fix_filters():
+    """Fix user filters to show all listings - temporary endpoint for debugging"""
+    try:
+        from sqlalchemy import or_
+        
+        # Get all users
+        users = User.query.all()
+        updated_count = 0
+        
+        for user in users:
+            if user.settings:
+                # Make filters very inclusive
+                user.settings.min_price = 0
+                user.settings.max_price = 100000
+                user.settings.min_deal_score = 0
+                
+                # Set all Irish locations as approved
+                all_locations = [
+                    'Dublin', 'Cork', 'Galway', 'Limerick', 'Waterford', 'Wexford', 
+                    'Kilkenny', 'Sligo', 'Donegal', 'Mayo', 'Kerry', 'Clare', 
+                    'Tipperary', 'Laois', 'Offaly', 'Westmeath', 'Longford', 
+                    'Leitrim', 'Cavan', 'Monaghan', 'Louth', 'Meath', 'Kildare', 
+                    'Wicklow', 'Carlow', 'Leinster', 'Munster', 'Connacht', 'Ulster',
+                    'Ireland', 'Irish', 'All', 'Any'
+                ]
+                
+                user.settings.set_approved_locations(all_locations)
+                updated_count += 1
+        
+        db.session.commit()
+        
+        # Check total listings
+        total_listings = CarListing.query.count()
+        
+        return jsonify({
+            'message': 'Filters updated successfully',
+            'users_updated': updated_count,
+            'total_listings': total_listings
+        }), 200
+        
+    except Exception as e:
         return jsonify({'error': str(e)}), 500

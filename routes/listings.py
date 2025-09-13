@@ -11,7 +11,7 @@ listings_bp = Blueprint('listings', __name__)
 @listings_bp.route('/', methods=['GET'])
 def get_listings():
     try:
-        user_id = 2  # Temporarily use test user
+        user_id = 1  # Temporarily use test user
         user = User.query.get(user_id)
         
         if not user or not user.settings:
@@ -149,6 +149,8 @@ def get_listing(listing_id):
 def get_listing_stats():
     try:
         user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         user = User.query.get(user_id)
         
         if not user or not user.settings:
@@ -260,6 +262,8 @@ def get_listing_stats():
 def get_top_deals():
     try:
         user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         user = User.query.get(user_id)
         
         if not user or not user.settings:
@@ -307,6 +311,8 @@ def get_top_deals():
 def search_listings():
     try:
         user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
         user = User.query.get(user_id)
         
         if not user or not user.settings:
