@@ -138,8 +138,21 @@ def get_dashboard_overview():
             func.avg(CarListing.deal_score)
         ).scalar() or 0
         
-        # Recent scrape activity
-        recent_scrapes = ScrapeLog.query.filter(
+        # Recent scrape activity (exclude notes column for production compatibility)
+        recent_scrapes = db.session.query(
+            ScrapeLog.id,
+            ScrapeLog.site_name,
+            ScrapeLog.started_at,
+            ScrapeLog.completed_at,
+            ScrapeLog.status,
+            ScrapeLog.listings_found,
+            ScrapeLog.listings_new,
+            ScrapeLog.listings_updated,
+            ScrapeLog.listings_removed,
+            ScrapeLog.pages_scraped,
+            ScrapeLog.errors,
+            ScrapeLog.is_blocked
+        ).filter(
             ScrapeLog.started_at >= week_ago
         ).order_by(ScrapeLog.started_at.desc()).limit(5).all()
         
@@ -405,8 +418,8 @@ def get_alerts():
                 'priority': 'medium'
             })
         
-        # Check for scraping issues
-        recent_failed_scrapes = ScrapeLog.query.filter(
+        # Check for scraping issues (exclude notes column for production compatibility)
+        recent_failed_scrapes = db.session.query(ScrapeLog.id).filter(
             and_(
                 ScrapeLog.status == 'failed',
                 ScrapeLog.started_at >= datetime.utcnow() - timedelta(hours=6)
@@ -421,8 +434,8 @@ def get_alerts():
                 'priority': 'high'
             })
         
-        # Check for blocked scrapes
-        recent_blocked_scrapes = ScrapeLog.query.filter(
+        # Check for blocked scrapes (exclude notes column for production compatibility)
+        recent_blocked_scrapes = db.session.query(ScrapeLog.id).filter(
             and_(
                 ScrapeLog.is_blocked == True,
                 ScrapeLog.started_at >= datetime.utcnow() - timedelta(hours=6)

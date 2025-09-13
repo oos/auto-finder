@@ -228,6 +228,12 @@ class ScrapeLog(db.Model):
     is_blocked = db.Column(db.Boolean, default=False)
     
     def to_dict(self):
+        # Handle missing notes column gracefully
+        try:
+            notes = self.notes
+        except AttributeError:
+            notes = None
+            
         return {
             'id': self.id,
             'site_name': self.site_name,
@@ -240,7 +246,7 @@ class ScrapeLog(db.Model):
             'listings_removed': self.listings_removed,
             'pages_scraped': self.pages_scraped,
             'errors': json.loads(self.errors) if self.errors else [],
-            'notes': self.notes,
+            'notes': notes,
             'is_blocked': self.is_blocked
         }
 

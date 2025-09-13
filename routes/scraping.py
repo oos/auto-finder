@@ -7,19 +7,63 @@ import json
 
 scraping_bp = Blueprint('scraping', __name__)
 
+def scrape_log_to_dict(log):
+    """Convert scrape log query result to dict"""
+    return {
+        'id': log.id,
+        'site_name': log.site_name,
+        'started_at': log.started_at.isoformat(),
+        'completed_at': log.completed_at.isoformat() if log.completed_at else None,
+        'status': log.status,
+        'listings_found': log.listings_found,
+        'listings_new': log.listings_new,
+        'listings_updated': log.listings_updated,
+        'listings_removed': log.listings_removed,
+        'pages_scraped': log.pages_scraped,
+        'errors': json.loads(log.errors) if log.errors else [],
+        'notes': None,  # Handle missing notes column
+        'is_blocked': log.is_blocked
+    }
+
 @scraping_bp.route('/status', methods=['GET'])
 def get_scraping_status():
     try:
-        # Get recent scrape logs
-        recent_logs = ScrapeLog.query.order_by(ScrapeLog.started_at.desc()).limit(10).all()
+        # Get recent scrape logs (exclude notes column for production compatibility)
+        recent_logs = db.session.query(
+            ScrapeLog.id,
+            ScrapeLog.site_name,
+            ScrapeLog.started_at,
+            ScrapeLog.completed_at,
+            ScrapeLog.status,
+            ScrapeLog.listings_found,
+            ScrapeLog.listings_new,
+            ScrapeLog.listings_updated,
+            ScrapeLog.listings_removed,
+            ScrapeLog.pages_scraped,
+            ScrapeLog.errors,
+            ScrapeLog.is_blocked
+        ).order_by(ScrapeLog.started_at.desc()).limit(10).all()
         
         # Check if any scrape is currently running
-        running_scrapes = ScrapeLog.query.filter_by(status='running').all()
+        running_scrapes = db.session.query(
+            ScrapeLog.id,
+            ScrapeLog.site_name,
+            ScrapeLog.started_at,
+            ScrapeLog.completed_at,
+            ScrapeLog.status,
+            ScrapeLog.listings_found,
+            ScrapeLog.listings_new,
+            ScrapeLog.listings_updated,
+            ScrapeLog.listings_removed,
+            ScrapeLog.pages_scraped,
+            ScrapeLog.errors,
+            ScrapeLog.is_blocked
+        ).filter_by(status='running').all()
         
         return jsonify({
-            'recent_logs': [log.to_dict() for log in recent_logs],
+            'recent_logs': [scrape_log_to_dict(log) for log in recent_logs],
             'is_running': len(running_scrapes) > 0,
-            'running_scrapes': [log.to_dict() for log in running_scrapes]
+            'running_scrapes': [scrape_log_to_dict(log) for log in running_scrapes]
         }), 200
         
     except Exception as e:
@@ -38,7 +82,7 @@ def start_scraping():
             return jsonify({'error': 'User or settings not found'}), 404
         
         # Check if scraping is already running
-        running_scrapes = ScrapeLog.query.filter_by(status='running').count()
+        running_scrapes = db.session.query(ScrapeLog.id).filter_by(status='running').count()
         if running_scrapes > 0:
             return jsonify({'error': 'Scraping is already in progress'}), 409
         
@@ -126,7 +170,7 @@ def stop_scraping():
         user_id = int(user_id) if user_id else None
         
         # Mark all running scrapes as stopped
-        running_scrapes = ScrapeLog.query.filter_by(status='running').all()
+        running_scrapes = db.session.query(ScrapeLog).filter_by(status='running').all()
         
         for scrape in running_scrapes:
             scrape.status = 'stopped'
@@ -148,15 +192,28 @@ def get_scrape_logs():
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 20, type=int), 100)
         
-        # Get logs with pagination
-        pagination = ScrapeLog.query.order_by(ScrapeLog.started_at.desc()).paginate(
+        # Get logs with pagination (exclude notes column for production compatibility)
+        pagination = db.session.query(
+            ScrapeLog.id,
+            ScrapeLog.site_name,
+            ScrapeLog.started_at,
+            ScrapeLog.completed_at,
+            ScrapeLog.status,
+            ScrapeLog.listings_found,
+            ScrapeLog.listings_new,
+            ScrapeLog.listings_updated,
+            ScrapeLog.listings_removed,
+            ScrapeLog.pages_scraped,
+            ScrapeLog.errors,
+            ScrapeLog.is_blocked
+        ).order_by(ScrapeLog.started_at.desc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
         
         logs = pagination.items
         
         return jsonify({
-            'logs': [log.to_dict() for log in logs],
+            'logs': [scrape_log_to_dict(log) for log in logs],
             'pagination': {
                 'page': page,
                 'per_page': per_page,
