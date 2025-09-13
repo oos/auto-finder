@@ -266,18 +266,18 @@ def clear_dummy_data():
         return send_from_directory(app.static_folder, 'index.html')
     except FileNotFoundError:
         # Fallback: return a simple HTML page with API info
-        return f"""
+        html_content = """
         <!DOCTYPE html>
         <html>
         <head>
             <title>Auto Finder - API Running</title>
             <style>
-                body {{ font-family: Arial, sans-serif; margin: 40px; }}
-                .container {{ max-width: 800px; margin: 0 auto; }}
-                .status {{ color: green; font-weight: bold; }}
-                .api-link {{ margin: 10px 0; }}
-                .api-link a {{ color: #007bff; text-decoration: none; }}
-                .api-link a:hover {{ text-decoration: underline; }}
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                .container { max-width: 800px; margin: 0 auto; }
+                .status { color: green; font-weight: bold; }
+                .api-link { margin: 10px 0; }
+                .api-link a { color: #007bff; text-decoration: none; }
+                .api-link a:hover { text-decoration: underline; }
             </style>
         </head>
         <body>
@@ -312,7 +312,8 @@ def clear_dummy_data():
             </div>
         </body>
         </html>
-        """, 200
+        """
+        return html_content, 200
 
 @app.errorhandler(500)
 def internal_error(error):
