@@ -315,6 +315,38 @@ def clear_dummy_data():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/fix-database', methods=['POST'])
+def fix_database():
+    """Fix database schema issues - no authentication required"""
+    try:
+        from sqlalchemy import text
+        
+        # Add notes column to scrape_logs table if it doesn't exist
+        try:
+            db.session.execute(text("ALTER TABLE scrape_logs ADD COLUMN notes TEXT"))
+            db.session.commit()
+            print("✅ Added notes column to scrape_logs table")
+            return jsonify({
+                'message': 'Database schema fixed successfully',
+                'added_notes_column': True
+            }), 200
+        except Exception as e:
+            if "already exists" in str(e) or "duplicate column" in str(e).lower():
+                print("ℹ️ Notes column already exists")
+                return jsonify({
+                    'message': 'Database schema is already correct',
+                    'added_notes_column': False
+                }), 200
+            else:
+                print(f"⚠️ Error adding notes column: {e}")
+                return jsonify({
+                    'message': 'Error fixing database schema',
+                    'error': str(e)
+                }), 500
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
     # For all other routes, serve the React app
     try:
         return send_from_directory(app.static_folder, 'index.html')
