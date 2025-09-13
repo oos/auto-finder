@@ -60,8 +60,8 @@ def test_dashboard():
 def get_dashboard_overview():
     try:
         print(f"DEBUG: dashboard/overview called")
-        # Temporarily use user ID 2 for testing
-        user_id = 2
+        # Temporarily use user ID 1 for testing
+        user_id = 1
         print(f"DEBUG: using test user_id: {user_id}")
         user = User.query.get(user_id)
         print(f"DEBUG: user found: {user is not None}")
@@ -161,7 +161,7 @@ def get_dashboard_overview():
 @dashboard_bp.route('/charts/trends', methods=['GET'])
 def get_trend_charts():
     try:
-        user_id = 2  # Temporarily use test user
+        user_id = 1  # Temporarily use test user
         user = User.query.get(user_id)
         
         if not user or not user.settings:
@@ -233,7 +233,7 @@ def get_trend_charts():
 @dashboard_bp.route('/charts/distribution', methods=['GET'])
 def get_distribution_charts():
     try:
-        user_id = 2  # Temporarily use test user
+        user_id = 1  # Temporarily use test user
         user = User.query.get(user_id)
         
         if not user or not user.settings:
@@ -364,7 +364,7 @@ def get_distribution_charts():
 @dashboard_bp.route('/alerts', methods=['GET'])
 def get_alerts():
     try:
-        user_id = 2  # Temporarily use test user
+        user_id = 1  # Temporarily use test user
         user = User.query.get(user_id)
         
         if not user or not user.settings:
