@@ -227,6 +227,21 @@ const Scraping = () => {
     }
   );
 
+  // Delete failed scrapes mutation
+  const deleteFailedMutation = useMutation(
+    () => axios.post('/api/scraping/delete-failed'),
+    {
+      onSuccess: (response) => {
+        toast.success(`Deleted ${response.data.failed_logs_deleted} failed scrapes!`);
+        queryClient.invalidateQueries('scraping-status');
+        queryClient.invalidateQueries('scraping-logs');
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.error || 'Failed to delete failed scrapes');
+      },
+    }
+  );
+
   const handleStartScraping = async () => {
     setIsStarting(true);
     try {
@@ -242,6 +257,12 @@ const Scraping = () => {
       await stopScrapingMutation.mutateAsync();
     } finally {
       setIsStopping(false);
+    }
+  };
+
+  const handleDeleteFailed = async () => {
+    if (window.confirm('Are you sure you want to delete all failed scraping attempts? This action cannot be undone.')) {
+      await deleteFailedMutation.mutateAsync();
     }
   };
 
@@ -330,6 +351,15 @@ const Scraping = () => {
             variant="danger"
           >
             {isStopping ? 'Stopping...' : 'Stop Scraping'}
+          </Button>
+          
+          <Button
+            onClick={handleDeleteFailed}
+            disabled={deleteFailedMutation.isLoading}
+            variant="danger"
+            style={{ backgroundColor: '#e74c3c' }}
+          >
+            {deleteFailedMutation.isLoading ? 'Deleting...' : 'Delete Failed Scrapes'}
           </Button>
         </div>
       </Section>

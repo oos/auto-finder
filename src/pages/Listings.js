@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useQuery } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import styled from 'styled-components';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const Container = styled.div`
   max-width: 1200px;
@@ -236,6 +237,7 @@ const ErrorMessage = styled.div`
 `;
 
 const Listings = () => {
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState({
     search: '',
     min_price: '',
@@ -274,6 +276,34 @@ const Listings = () => {
     { keepPreviousData: true }
   );
 
+  // Delete dummy listings mutation
+  const deleteDummyMutation = useMutation(
+    () => axios.post('/api/listings/delete-dummy'),
+    {
+      onSuccess: (response) => {
+        toast.success(`Deleted ${response.data.dummy_listings_deleted} dummy listings!`);
+        queryClient.invalidateQueries('listings');
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.error || 'Failed to delete dummy listings');
+      },
+    }
+  );
+
+  // Add dummy listings mutation
+  const addDummyMutation = useMutation(
+    () => axios.post('/api/listings/add-dummy'),
+    {
+      onSuccess: (response) => {
+        toast.success(`Added ${response.data.listings_created} dummy listings!`);
+        queryClient.invalidateQueries('listings');
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.error || 'Failed to add dummy listings');
+      },
+    }
+  );
+
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({
       ...prev,
@@ -288,6 +318,18 @@ const Listings = () => {
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
+  };
+
+  const handleDeleteDummy = async () => {
+    if (window.confirm('Are you sure you want to delete all dummy/test listings? This action cannot be undone.')) {
+      await deleteDummyMutation.mutateAsync();
+    }
+  };
+
+  const handleAddDummy = async () => {
+    if (window.confirm('This will add 15 dummy listings for testing. Continue?')) {
+      await addDummyMutation.mutateAsync();
+    }
   };
 
   const formatPrice = (price) => {
@@ -342,6 +384,20 @@ const Listings = () => {
           </FilterButton>
           <FilterButton onClick={handleSearch}>
             Search
+          </FilterButton>
+          <FilterButton 
+            onClick={handleDeleteDummy}
+            disabled={deleteDummyMutation.isLoading}
+            style={{ backgroundColor: '#e74c3c' }}
+          >
+            {deleteDummyMutation.isLoading ? 'Deleting...' : 'Delete Test Listings'}
+          </FilterButton>
+          <FilterButton 
+            onClick={handleAddDummy}
+            disabled={addDummyMutation.isLoading}
+            style={{ backgroundColor: '#27ae60' }}
+          >
+            {addDummyMutation.isLoading ? 'Adding...' : 'Add Dummy Data'}
           </FilterButton>
         </SearchContainer>
       </Header>
