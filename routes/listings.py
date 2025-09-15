@@ -37,6 +37,7 @@ def get_listings():
         mileage_max = request.args.get('mileage_max', type=int)
         price_dropped = request.args.get('price_dropped', type=bool)
         is_duplicate = request.args.get('is_duplicate', type=bool)
+        listing_type = request.args.get('listing_type')
         
         # Sorting
         sort_by = request.args.get('sort_by', 'deal_score')
@@ -76,6 +77,11 @@ def get_listings():
             query = query.filter(CarListing.price_dropped == price_dropped)
         if is_duplicate is not None:
             query = query.filter(CarListing.is_duplicate == is_duplicate)
+        if listing_type:
+            if listing_type == 'dummy':
+                query = query.filter(CarListing.source_site.in_(['sample', 'lewismotors']))
+            elif listing_type == 'real':
+                query = query.filter(~CarListing.source_site.in_(['sample', 'lewismotors']))
         
         # Apply user's blacklist
         blacklist_keywords = [item.keyword for item in user.blacklists]

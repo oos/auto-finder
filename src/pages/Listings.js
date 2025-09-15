@@ -272,6 +272,7 @@ const Listings = () => {
     mileage_max: '',
     price_dropped: '',
     is_duplicate: '',
+    listing_type: '',
     sort_by: 'deal_score',
     sort_order: 'desc'
   });
@@ -508,6 +509,18 @@ const Listings = () => {
               <option value="">All</option>
               <option value="Manual">Manual</option>
               <option value="Automatic">Automatic</option>
+            </FilterSelect>
+          </FilterGroup>
+          
+          <FilterGroup>
+            <FilterLabel>Listing Type</FilterLabel>
+            <FilterSelect
+              value={filters.listing_type}
+              onChange={(e) => handleFilterChange('listing_type', e.target.value)}
+            >
+              <option value="">All Listings</option>
+              <option value="real">Real Listings Only</option>
+              <option value="dummy">Dummy Data Only</option>
             </FilterSelect>
           </FilterGroup>
           
