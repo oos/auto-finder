@@ -34,6 +34,7 @@ COPY scraping_engine_conservative.py .
 COPY scraping_engine_real.py .
 COPY scraping_engine_adaptive.py .
 COPY scraping_engine_robust.py .
+COPY scraping_engine_irish_market.py .
 COPY email_service.py .
 COPY celery_app.py .
 COPY logging_config.py .

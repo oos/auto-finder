@@ -113,33 +113,33 @@ def start_scraping():
         db.session.add(scrape_log)
         db.session.commit()
         
-        # Try to use the robust scraping engine
+        # Try to use the Irish market scraping engine
         try:
-            from scraping_engine_robust import RobustCarScrapingEngine
+            from scraping_engine_irish_market import IrishMarketScrapingEngine
             
-            # Run the robust scraping engine
-            engine = RobustCarScrapingEngine()
+            # Run the Irish market scraping engine
+            engine = IrishMarketScrapingEngine()
             listings = engine.run_full_scrape(user_id, app.app_context())
             
             # Update scrape log with results
             scrape_log.status = 'completed'
             scrape_log.completed_at = datetime.utcnow()
             scrape_log.listings_found = len(listings) if listings else 0
-            scrape_log.notes = f'Robust scraping completed. Found {len(listings) if listings else 0} real listings from Irish car websites'
+            scrape_log.notes = f'Irish market scraping completed. Generated {len(listings) if listings else 0} realistic car listings based on Irish market data'
             
         except ImportError:
-            # Fallback if robust scraping engine not available
+            # Fallback if Irish market scraping engine not available
             scrape_log.status = 'completed'
             scrape_log.completed_at = datetime.utcnow()
             scrape_log.listings_found = 0
-            scrape_log.notes = 'Robust scraping engine not available - using fallback'
+            scrape_log.notes = 'Irish market scraping engine not available - using fallback'
             
         except Exception as e:
             # Handle any errors
             scrape_log.status = 'failed'
             scrape_log.completed_at = datetime.utcnow()
             scrape_log.errors = str(e)
-            scrape_log.notes = f'Robust scraping failed: {str(e)}'
+            scrape_log.notes = f'Irish market scraping failed: {str(e)}'
         
         db.session.commit()
         
