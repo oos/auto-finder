@@ -77,6 +77,10 @@ class UserSettings(db.Model):
     email_notifications = db.Column(db.Boolean, default=True)
     daily_email_time = db.Column(db.String(5), default='09:00')  # HH:MM format
     
+    # Port configuration
+    frontend_port = db.Column(db.Integer, default=3000)
+    backend_port = db.Column(db.Integer, default=5003)
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -115,6 +119,8 @@ class UserSettings(db.Model):
             'weight_listing_freshness': self.weight_listing_freshness,
             'email_notifications': self.email_notifications,
             'daily_email_time': self.daily_email_time,
+            'frontend_port': self.frontend_port,
+            'backend_port': self.backend_port,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }

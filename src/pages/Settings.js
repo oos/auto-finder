@@ -629,6 +629,48 @@ const Settings = () => {
         </Form>
       </Section>
 
+      {/* Port Configuration */}
+      <Section>
+        <SectionTitle>Port Configuration</SectionTitle>
+        <Form onSubmit={handleSaveSettings}>
+          <FormRow>
+            <FormGroup>
+              <Label htmlFor="frontend_port">Frontend Port</Label>
+              <Input
+                type="number"
+                id="frontend_port"
+                min="1024"
+                max="65535"
+                value={settings.frontend_port || 3000}
+                onChange={(e) => handleSettingsChange('frontend_port', parseInt(e.target.value))}
+                placeholder="3000"
+              />
+              <small>Port for React development server (default: 3000)</small>
+            </FormGroup>
+            
+            <FormGroup>
+              <Label htmlFor="backend_port">Backend Port</Label>
+              <Input
+                type="number"
+                id="backend_port"
+                min="1024"
+                max="65535"
+                value={settings.backend_port || 5003}
+                onChange={(e) => handleSettingsChange('backend_port', parseInt(e.target.value))}
+                placeholder="5003"
+              />
+              <small>Port for Flask API server (default: 5003)</small>
+            </FormGroup>
+          </FormRow>
+          
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Saving...' : 'Save Port Settings'}
+            </Button>
+          </div>
+        </Form>
+      </Section>
+
       {/* Blacklist */}
       <Section>
         <SectionTitle>Blacklisted Keywords</SectionTitle>

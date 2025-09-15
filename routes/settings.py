@@ -112,6 +112,18 @@ def update_settings():
             except ValueError:
                 return jsonify({'error': 'Invalid time format. Use HH:MM'}), 400
         
+        # Update port settings
+        if 'frontend_port' in data:
+            port = int(data['frontend_port'])
+            if port < 1024 or port > 65535:
+                return jsonify({'error': 'Frontend port must be between 1024 and 65535'}), 400
+            settings.frontend_port = port
+        if 'backend_port' in data:
+            port = int(data['backend_port'])
+            if port < 1024 or port > 65535:
+                return jsonify({'error': 'Backend port must be between 1024 and 65535'}), 400
+            settings.backend_port = port
+        
         settings.updated_at = datetime.utcnow()
         db.session.commit()
         
