@@ -33,6 +33,7 @@ COPY scraping_engine_lewis.py .
 COPY scraping_engine_conservative.py .
 COPY scraping_engine_real.py .
 COPY scraping_engine_adaptive.py .
+COPY scraping_engine_robust.py .
 COPY email_service.py .
 COPY celery_app.py .
 COPY logging_config.py .

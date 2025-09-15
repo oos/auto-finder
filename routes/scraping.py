@@ -113,33 +113,33 @@ def start_scraping():
         db.session.add(scrape_log)
         db.session.commit()
         
-        # Try to use the adaptive scraping engine
+        # Try to use the robust scraping engine
         try:
-            from scraping_engine_adaptive import AdaptiveCarScrapingEngine
+            from scraping_engine_robust import RobustCarScrapingEngine
             
-            # Run the adaptive scraping engine
-            engine = AdaptiveCarScrapingEngine()
+            # Run the robust scraping engine
+            engine = RobustCarScrapingEngine()
             listings = engine.run_full_scrape(user_id, app.app_context())
             
             # Update scrape log with results
             scrape_log.status = 'completed'
             scrape_log.completed_at = datetime.utcnow()
             scrape_log.listings_found = len(listings) if listings else 0
-            scrape_log.notes = f'Adaptive scraping completed. Found {len(listings) if listings else 0} real listings from Irish car websites'
+            scrape_log.notes = f'Robust scraping completed. Found {len(listings) if listings else 0} real listings from Irish car websites'
             
         except ImportError:
-            # Fallback if adaptive scraping engine not available
+            # Fallback if robust scraping engine not available
             scrape_log.status = 'completed'
             scrape_log.completed_at = datetime.utcnow()
             scrape_log.listings_found = 0
-            scrape_log.notes = 'Adaptive scraping engine not available - using fallback'
+            scrape_log.notes = 'Robust scraping engine not available - using fallback'
             
         except Exception as e:
             # Handle any errors
             scrape_log.status = 'failed'
             scrape_log.completed_at = datetime.utcnow()
             scrape_log.errors = str(e)
-            scrape_log.notes = f'Adaptive scraping failed: {str(e)}'
+            scrape_log.notes = f'Robust scraping failed: {str(e)}'
         
         db.session.commit()
         
