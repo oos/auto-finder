@@ -92,6 +92,32 @@ def debug_imports():
     
     return jsonify(result), 200
 
+@app.route('/api/clear-all-data', methods=['POST'])
+def clear_all_data_simple():
+    """Simple endpoint to clear all data for testing"""
+    try:
+        from models import CarListing, ScrapeLog
+        
+        # Clear all scraping logs
+        logs_deleted = db.session.query(ScrapeLog).delete()
+        
+        # Clear all dummy/sample listings
+        dummy_listings_deleted = CarListing.query.filter(
+            CarListing.source_site.in_(['sample', 'lewismotors'])
+        ).delete()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'All data cleared successfully',
+            'logs_deleted': logs_deleted,
+            'listings_deleted': dummy_listings_deleted
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/test-routing')
 def test_routing():
     return jsonify({'message': 'Routing is working', 'timestamp': datetime.utcnow().isoformat()})

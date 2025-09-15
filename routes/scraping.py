@@ -328,3 +328,33 @@ def get_scrape_log(log_id):
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@scraping_bp.route('/clear-all', methods=['POST'])
+@jwt_required()
+def clear_all_data():
+    """Clear all scraping logs and dummy listings for a fresh start"""
+    try:
+        user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
+        
+        # Clear all scraping logs
+        logs_deleted = db.session.query(ScrapeLog).delete()
+        
+        # Clear all dummy/sample listings
+        from models import CarListing
+        dummy_listings_deleted = CarListing.query.filter(
+            CarListing.source_site.in_(['sample', 'lewismotors'])
+        ).delete()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'All data cleared successfully',
+            'logs_deleted': logs_deleted,
+            'listings_deleted': dummy_listings_deleted
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
