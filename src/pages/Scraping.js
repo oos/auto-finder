@@ -185,6 +185,33 @@ const ErrorMessage = styled.div`
   margin: ${props => props.theme.spacing.lg} 0;
 `;
 
+const EmptyState = styled.div`
+  text-align: center;
+  padding: ${props => props.theme.spacing.xl};
+  color: ${props => props.theme.colors.gray};
+  background: ${props => props.theme.colors.light};
+  border-radius: ${props => props.theme.borderRadius};
+  margin: ${props => props.theme.spacing.lg} 0;
+`;
+
+const EmptyStateIcon = styled.div`
+  font-size: 3rem;
+  margin-bottom: ${props => props.theme.spacing.md};
+  opacity: 0.5;
+`;
+
+const EmptyStateTitle = styled.h3`
+  color: ${props => props.theme.colors.dark};
+  margin-bottom: ${props => props.theme.spacing.sm};
+  font-size: 1.2rem;
+`;
+
+const EmptyStateText = styled.p`
+  color: ${props => props.theme.colors.gray};
+  margin: 0;
+  line-height: 1.5;
+`;
+
 const InfoBox = styled.div`
   background: #e7f3ff;
   color: #0066cc;
@@ -480,6 +507,16 @@ const Scraping = () => {
           <LoadingSpinner>Loading logs...</LoadingSpinner>
         ) : logsError ? (
           <ErrorMessage>Error loading logs. Please try again later.</ErrorMessage>
+        ) : logs?.logs?.length === 0 ? (
+          <EmptyState>
+            <EmptyStateIcon>📊</EmptyStateIcon>
+            <EmptyStateTitle>No Scraping Logs Yet</EmptyStateTitle>
+            <EmptyStateText>
+              Start your first scraping job to see logs here. 
+              <br />
+              Click "Start Scraping" to begin collecting car listings.
+            </EmptyStateText>
+          </EmptyState>
         ) : (
           <LogsTable>
             <thead>
