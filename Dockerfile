@@ -28,6 +28,7 @@ COPY app.py .
 COPY models.py .
 COPY database.py .
 COPY scraping_engine.py .
+COPY scraping_engine_simple.py .
 COPY scraping_engine_conservative.py .
 COPY email_service.py .
 COPY celery_app.py .
