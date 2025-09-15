@@ -161,49 +161,39 @@ def start_scraping():
                         engine_class = MinimalScrapingEngine
                         engine_type = "minimal_fallback"
             
-            # Run scraping in a separate thread to avoid blocking the API
-            import threading
-            
-            def run_scraping():
-                from app import app
-                with app.app_context():
-                    try:
-                        engine = engine_class()
-                        if engine_type == "minimal_fallback":
-                            listings = engine.run_full_scrape(user_id)
-                            # Save sample listings to database
-                            if listings:
-                                from models import CarListing
-                                for listing_data in listings:
-                                    # Check if listing already exists
-                                    existing = CarListing.query.filter_by(url=listing_data['url']).first()
-                                    if not existing:
-                                        listing = CarListing(**listing_data)
-                                        db.session.add(listing)
-                                db.session.commit()
-                        else:
-                            listings = engine.run_full_scrape(user_id, app.app_context())
-                        
-                        # Update scrape log
-                        scrape_log.status = 'completed'
-                        scrape_log.completed_at = datetime.utcnow()
-                        scrape_log.listings_found = len(listings) if listings else 0
-                        scrape_log.notes = f'Scraping completed successfully using {engine_type} engine. Found {len(listings) if listings else 0} listings.'
-                        
-                    except Exception as e:
-                        # Update scrape log with error
-                        scrape_log.status = 'failed'
-                        scrape_log.completed_at = datetime.utcnow()
-                        scrape_log.errors = str(e)
-                        scrape_log.notes = f'Scraping failed using {engine_type} engine: {str(e)}'
-                    
-                    finally:
+            # Run scraping synchronously for now to debug the issue
+            try:
+                engine = engine_class()
+                if engine_type == "minimal_fallback":
+                    listings = engine.run_full_scrape(user_id)
+                    # Save sample listings to database
+                    if listings:
+                        from models import CarListing
+                        for listing_data in listings:
+                            # Check if listing already exists
+                            existing = CarListing.query.filter_by(url=listing_data['url']).first()
+                            if not existing:
+                                listing = CarListing(**listing_data)
+                                db.session.add(listing)
                         db.session.commit()
+                else:
+                    listings = engine.run_full_scrape(user_id, app.app_context())
+                
+                # Update scrape log
+                scrape_log.status = 'completed'
+                scrape_log.completed_at = datetime.utcnow()
+                scrape_log.listings_found = len(listings) if listings else 0
+                scrape_log.notes = f'Scraping completed successfully using {engine_type} engine. Found {len(listings) if listings else 0} listings.'
+                
+            except Exception as e:
+                # Update scrape log with error
+                scrape_log.status = 'failed'
+                scrape_log.completed_at = datetime.utcnow()
+                scrape_log.errors = str(e)
+                scrape_log.notes = f'Scraping failed using {engine_type} engine: {str(e)}'
             
-            # Start scraping in background thread
-            scraping_thread = threading.Thread(target=run_scraping)
-            scraping_thread.daemon = True
-            scraping_thread.start()
+            finally:
+                db.session.commit()
             
             return jsonify({
                 'message': f'Scraping started successfully using {engine_type} engine',
