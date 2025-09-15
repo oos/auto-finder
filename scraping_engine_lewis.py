@@ -37,54 +37,10 @@ class LewisMotorsScrapingEngine:
         logger.info("Starting Lewismotors.ie scraping")
         
         try:
-            listings = []
-            base_url = "https://www.lewismotors.ie/used-cars"
-            
-            for page in range(1, max_pages + 1):
-                try:
-                    url = f"{base_url}?page={page}"
-                    logger.info(f"Scraping Lewismotors page {page}: {url}")
-                    
-                    response = self.session.get(url, timeout=15)
-                    
-                    if response.status_code == 200:
-                        soup = BeautifulSoup(response.content, 'html.parser')
-                        
-                        # Look for car listing containers
-                        car_containers = soup.find_all(['div', 'article'], class_=re.compile(r'car|listing|vehicle|card', re.I))
-                        
-                        if not car_containers:
-                            # Try alternative selectors
-                            car_containers = soup.find_all('div', class_=re.compile(r'item|product|result', re.I))
-                        
-                        logger.info(f"Found {len(car_containers)} potential car containers on page {page}")
-                        
-                        for container in car_containers:
-                            try:
-                                listing = self.extract_car_listing(container, page)
-                                if listing:
-                                    listings.append(listing)
-                            except Exception as e:
-                                logger.warning(f"Error extracting listing from container: {e}")
-                                continue
-                        
-                        # If no real listings found, generate some sample data
-                        if not listings and page == 1:
-                            logger.info("No real listings found, generating sample data")
-                            listings = self.generate_lewis_sample_listings(10)
-                            break
-                        
-                    else:
-                        logger.warning(f"Lewismotors returned status {response.status_code} on page {page}")
-                    
-                    # Be respectful - wait between requests
-                    time.sleep(random.uniform(1, 3))
-                    
-                except Exception as e:
-                    logger.warning(f"Error scraping Lewismotors page {page}: {e}")
-                    continue
-            
-            logger.info(f"Lewismotors scraping completed: {len(listings)} listings found")
+            # For now, just generate sample data immediately to test the system
+            logger.info("Generating Lewis Motors sample data for testing")
+            listings = self.generate_lewis_sample_listings(15)
+            logger.info(f"Lewismotors scraping completed: {len(listings)} sample listings generated")
             return listings
             
         except Exception as e:
