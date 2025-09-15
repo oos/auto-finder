@@ -397,6 +397,55 @@ def fix_database():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/add-port-columns', methods=['POST'])
+def add_port_columns():
+    """Add port configuration columns to user_settings table"""
+    try:
+        from sqlalchemy import text
+        
+        # Add frontend_port column if it doesn't exist
+        try:
+            db.session.execute(text("ALTER TABLE user_settings ADD COLUMN frontend_port INTEGER DEFAULT 3000"))
+            db.session.commit()
+            added_frontend_port = True
+            print("✅ Added frontend_port column to user_settings table")
+        except Exception as e:
+            if "already exists" in str(e) or "duplicate column" in str(e).lower():
+                added_frontend_port = False
+                print("ℹ️ frontend_port column already exists")
+            else:
+                raise e
+                
+        # Add backend_port column if it doesn't exist
+        try:
+            db.session.execute(text("ALTER TABLE user_settings ADD COLUMN backend_port INTEGER DEFAULT 5003"))
+            db.session.commit()
+            added_backend_port = True
+            print("✅ Added backend_port column to user_settings table")
+        except Exception as e:
+            if "already exists" in str(e) or "duplicate column" in str(e).lower():
+                added_backend_port = False
+                print("ℹ️ backend_port column already exists")
+            else:
+                raise e
+        
+        # Set default values for existing records
+        if added_frontend_port:
+            db.session.execute(text("UPDATE user_settings SET frontend_port = 3000 WHERE frontend_port IS NULL"))
+            db.session.commit()
+        if added_backend_port:
+            db.session.execute(text("UPDATE user_settings SET backend_port = 5003 WHERE backend_port IS NULL"))
+            db.session.commit()
+        
+        return jsonify({
+            'message': 'Port columns added successfully',
+            'added_frontend_port': added_frontend_port,
+            'added_backend_port': added_backend_port
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
     # For all other routes, serve the React app
     try:
         return send_from_directory(app.static_folder, 'index.html')
