@@ -68,6 +68,30 @@ app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
 def health_check():
     return jsonify({'status': 'healthy', 'message': 'Auto Finder API is running'})
 
+@app.route('/api/debug-imports', methods=['GET'])
+def debug_imports():
+    import os
+    import sys
+    
+    result = {
+        'current_dir': os.getcwd(),
+        'python_path': sys.path,
+        'files_in_dir': os.listdir('.'),
+        'scraping_engine_exists': os.path.exists('scraping_engine_simple.py'),
+        'scraping_engine_size': os.path.getsize('scraping_engine_simple.py') if os.path.exists('scraping_engine_simple.py') else 0
+    }
+    
+    # Try to import
+    try:
+        from scraping_engine_simple import SimpleCarScrapingEngine
+        result['import_success'] = True
+        result['class_name'] = SimpleCarScrapingEngine.__name__
+    except Exception as e:
+        result['import_success'] = False
+        result['import_error'] = str(e)
+    
+    return jsonify(result), 200
+
 @app.route('/test-routing')
 def test_routing():
     return jsonify({'message': 'Routing is working', 'timestamp': datetime.utcnow().isoformat()})
