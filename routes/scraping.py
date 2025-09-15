@@ -166,7 +166,7 @@ def start_scraping():
                     'url': f"https://www.irishcarwebsite.ie/used-cars/{make.lower()}-{model.lower().replace(' ', '-')}-{year}-{i+1}",
                     'image_url': f"https://via.placeholder.com/300x200?text={make}+{model}+{year}",
                     'image_hash': hashlib.md5(f"irish_market_{i+1}".encode()).hexdigest()[:16],
-                    'source_site': 'irish_market',
+                    'source_site': 'sample',
                     'first_seen': datetime.utcnow(),
                     'make': make,
                     'model': model,
@@ -191,7 +191,7 @@ def start_scraping():
             scrape_log.status = 'completed'
             scrape_log.completed_at = datetime.utcnow()
             scrape_log.listings_found = listings_created
-            scrape_log.notes = f'Irish market scraping completed. Generated {listings_created} realistic car listings'
+            scrape_log.notes = f'Dummy data generation completed. Generated {listings_created} sample car listings'
             
         except Exception as e:
             # Handle any errors
@@ -203,9 +203,9 @@ def start_scraping():
         db.session.commit()
         
         return jsonify({
-            'message': 'Real car scraping completed',
+            'message': 'Dummy data generation completed',
             'scrape_log_id': scrape_log.id,
-            'engine_type': 'real',
+            'engine_type': 'dummy',
             'listings_found': scrape_log.listings_found
         }), 200
         
