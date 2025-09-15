@@ -533,10 +533,31 @@ class SimpleCarScrapingEngine:
         
         return sample_listings
 
-    def run_full_scrape(self, user_id=None):
+    def run_full_scrape(self, user_id=None, app_context=None):
         """Run full scraping process for all enabled sites"""
         logger.info("Starting full scraping process (simple mode)")
         
+        try:
+            # Use provided app context or create one
+            if app_context:
+                with app_context:
+                    return self._do_scrape(user_id)
+            else:
+                # Try to get app context from current app
+                try:
+                    from app import app
+                    with app.app_context():
+                        return self._do_scrape(user_id)
+                except ImportError:
+                    logger.error("Cannot import app for context. Scraping will not work.")
+                    return []
+        
+        except Exception as e:
+            logger.error(f"Error in full scraping process: {e}")
+            return []
+    
+    def _do_scrape(self, user_id=None):
+        """Internal method to do the actual scraping within app context"""
         try:
             # Get all users or specific user
             if user_id:

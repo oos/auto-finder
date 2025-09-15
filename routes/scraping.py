@@ -116,7 +116,7 @@ def start_scraping():
                 with app.app_context():
                     try:
                         engine = engine_class()
-                        listings = engine.run_full_scrape(user_id)
+                        listings = engine.run_full_scrape(user_id, app.app_context())
                         
                         # Update scrape log
                         scrape_log.status = 'completed'
