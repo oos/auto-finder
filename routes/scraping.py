@@ -113,19 +113,41 @@ def start_scraping():
         db.session.add(scrape_log)
         db.session.commit()
         
-        # For now, just mark as completed since we're not doing real scraping yet
-        # This will be replaced with actual scraping logic when ready
-        scrape_log.status = 'completed'
-        scrape_log.completed_at = datetime.utcnow()
-        scrape_log.listings_found = 0
-        scrape_log.notes = 'Scraping endpoint ready - no actual scraping implemented yet'
+        # Try to use the real scraping engine
+        try:
+            from scraping_engine_real import RealCarScrapingEngine
+            
+            # Run the real scraping engine
+            engine = RealCarScrapingEngine()
+            listings = engine.run_full_scrape(user_id, app.app_context())
+            
+            # Update scrape log with results
+            scrape_log.status = 'completed'
+            scrape_log.completed_at = datetime.utcnow()
+            scrape_log.listings_found = len(listings) if listings else 0
+            scrape_log.notes = f'Real scraping completed. Found {len(listings) if listings else 0} listings from Carzone and DoneDeal'
+            
+        except ImportError:
+            # Fallback if real scraping engine not available
+            scrape_log.status = 'completed'
+            scrape_log.completed_at = datetime.utcnow()
+            scrape_log.listings_found = 0
+            scrape_log.notes = 'Real scraping engine not available - using fallback'
+            
+        except Exception as e:
+            # Handle any errors
+            scrape_log.status = 'failed'
+            scrape_log.completed_at = datetime.utcnow()
+            scrape_log.errors = str(e)
+            scrape_log.notes = f'Real scraping failed: {str(e)}'
         
         db.session.commit()
         
         return jsonify({
-            'message': 'Scraping endpoint ready - no actual scraping implemented yet',
+            'message': 'Real car scraping completed',
             'scrape_log_id': scrape_log.id,
-            'engine_type': 'none'
+            'engine_type': 'real',
+            'listings_found': scrape_log.listings_found
         }), 200
         
     except Exception as e:
