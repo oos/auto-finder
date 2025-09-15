@@ -134,32 +134,32 @@ def start_scraping():
                         engine_type = "full"
                     except ImportError as e:
                         # If all fail, create a minimal fallback
-                    class MinimalScrapingEngine:
-                        def run_full_scrape(self, user_id=None, app_context=None):
-                            # Generate sample data directly
-                            sample_listings = []
-                            for i in range(15):
-                                listing = {
-                                    'title': f'2022 Sample Car {i+1}',
-                                    'price': 15000 + (i * 1000),
-                                    'location': 'Dublin',
-                                    'url': f'https://example.com/sample-car-{i+1}',
-                                    'image_url': f'https://via.placeholder.com/300x200?text=Sample+Car+{i+1}',
-                                    'image_hash': f'sample_hash_{i+1}',
-                                    'source_site': 'sample',
-                                    'first_seen': datetime.utcnow(),
-                                    'make': 'Sample',
-                                    'model': 'Car',
-                                    'year': 2022,
-                                    'mileage': 50000 + (i * 1000),
-                                    'fuel_type': 'Petrol',
-                                    'transmission': 'Manual'
-                                }
-                                sample_listings.append(listing)
-                            return sample_listings
-                    
-                    engine_class = MinimalScrapingEngine
-                    engine_type = "minimal_fallback"
+                        class MinimalScrapingEngine:
+                            def run_full_scrape(self, user_id=None, app_context=None):
+                                # Generate sample data directly
+                                sample_listings = []
+                                for i in range(15):
+                                    listing = {
+                                        'title': f'2022 Sample Car {i+1}',
+                                        'price': 15000 + (i * 1000),
+                                        'location': 'Dublin',
+                                        'url': f'https://example.com/sample-car-{i+1}',
+                                        'image_url': f'https://via.placeholder.com/300x200?text=Sample+Car+{i+1}',
+                                        'image_hash': f'sample_hash_{i+1}',
+                                        'source_site': 'sample',
+                                        'first_seen': datetime.utcnow(),
+                                        'make': 'Sample',
+                                        'model': 'Car',
+                                        'year': 2022,
+                                        'mileage': 50000 + (i * 1000),
+                                        'fuel_type': 'Petrol',
+                                        'transmission': 'Manual'
+                                    }
+                                    sample_listings.append(listing)
+                                return sample_listings
+                        
+                        engine_class = MinimalScrapingEngine
+                        engine_type = "minimal_fallback"
             
             # Run scraping in a separate thread to avoid blocking the API
             import threading
