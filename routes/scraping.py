@@ -383,3 +383,36 @@ def delete_failed_scrapes():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+@scraping_bp.route('/bulk-delete', methods=['POST'])
+@jwt_required()
+def bulk_delete_scrapes():
+    """Delete selected scraping attempts by IDs"""
+    try:
+        user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
+        
+        data = request.get_json()
+        if not data or 'ids' not in data:
+            return jsonify({'error': 'No IDs provided'}), 400
+        
+        ids = data['ids']
+        if not isinstance(ids, list) or len(ids) == 0:
+            return jsonify({'error': 'Invalid IDs provided'}), 400
+        
+        # Delete selected scraping logs
+        deleted_count = db.session.query(ScrapeLog).filter(
+            ScrapeLog.id.in_(ids)
+        ).delete(synchronize_session=False)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Selected scrapes deleted successfully',
+            'deleted_count': deleted_count
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500

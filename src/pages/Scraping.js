@@ -154,6 +154,19 @@ const StatusBadge = styled.span`
   }};
 `;
 
+const Checkbox = styled.input`
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+`;
+
+const CheckboxCell = styled.td`
+  padding: ${props => props.theme.spacing.md};
+  border-bottom: 1px solid ${props => props.theme.colors.lightGray};
+  text-align: center;
+  width: 50px;
+`;
+
 const LoadingSpinner = styled.div`
   display: flex;
   justify-content: center;
@@ -185,6 +198,8 @@ const Scraping = () => {
   const queryClient = useQueryClient();
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
+  const [selectedRows, setSelectedRows] = useState(new Set());
+  const [selectAll, setSelectAll] = useState(false);
 
   // Fetch scraping status
   const { data: status, isLoading: statusLoading, error: statusError } = useQuery(
@@ -242,6 +257,23 @@ const Scraping = () => {
     }
   );
 
+  // Bulk delete selected scrapes mutation
+  const bulkDeleteMutation = useMutation(
+    (selectedIds) => axios.post('/api/scraping/bulk-delete', { ids: Array.from(selectedIds) }),
+    {
+      onSuccess: (response) => {
+        toast.success(`Deleted ${response.data.deleted_count} selected scrapes!`);
+        setSelectedRows(new Set());
+        setSelectAll(false);
+        queryClient.invalidateQueries('scraping-status');
+        queryClient.invalidateQueries('scraping-logs');
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.error || 'Failed to delete selected scrapes');
+      },
+    }
+  );
+
   const handleStartScraping = async () => {
     setIsStarting(true);
     try {
@@ -263,6 +295,39 @@ const Scraping = () => {
   const handleDeleteFailed = async () => {
     if (window.confirm('Are you sure you want to delete all failed scraping attempts? This action cannot be undone.')) {
       await deleteFailedMutation.mutateAsync();
+    }
+  };
+
+  const handleSelectRow = (logId) => {
+    const newSelected = new Set(selectedRows);
+    if (newSelected.has(logId)) {
+      newSelected.delete(logId);
+    } else {
+      newSelected.add(logId);
+    }
+    setSelectedRows(newSelected);
+    setSelectAll(newSelected.size === logs?.logs?.length);
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedRows(new Set());
+      setSelectAll(false);
+    } else {
+      const allIds = new Set(logs?.logs?.map(log => log.id) || []);
+      setSelectedRows(allIds);
+      setSelectAll(true);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedRows.size === 0) {
+      toast.error('Please select at least one row to delete');
+      return;
+    }
+    
+    if (window.confirm(`Are you sure you want to delete ${selectedRows.size} selected scraping attempts? This action cannot be undone.`)) {
+      await bulkDeleteMutation.mutateAsync(selectedRows);
     }
   };
 
@@ -361,6 +426,15 @@ const Scraping = () => {
           >
             {deleteFailedMutation.isLoading ? 'Deleting...' : 'Delete Failed Scrapes'}
           </Button>
+          
+          <Button
+            onClick={handleBulkDelete}
+            disabled={bulkDeleteMutation.isLoading || selectedRows.size === 0}
+            variant="danger"
+            style={{ backgroundColor: '#8e44ad' }}
+          >
+            {bulkDeleteMutation.isLoading ? 'Deleting...' : `Delete Selected (${selectedRows.size})`}
+          </Button>
         </div>
       </Section>
 
@@ -410,6 +484,13 @@ const Scraping = () => {
           <LogsTable>
             <thead>
               <tr>
+                <TableHeader style={{ width: '50px' }}>
+                  <Checkbox
+                    type="checkbox"
+                    checked={selectAll}
+                    onChange={handleSelectAll}
+                  />
+                </TableHeader>
                 <TableHeader>Site</TableHeader>
                 <TableHeader>Started</TableHeader>
                 <TableHeader>Completed</TableHeader>
@@ -423,6 +504,13 @@ const Scraping = () => {
             <tbody>
               {logs?.logs?.map((log) => (
                 <tr key={log.id}>
+                  <CheckboxCell>
+                    <Checkbox
+                      type="checkbox"
+                      checked={selectedRows.has(log.id)}
+                      onChange={() => handleSelectRow(log.id)}
+                    />
+                  </CheckboxCell>
                   <TableCell>{log.site_name}</TableCell>
                   <TableCell>{formatDate(log.started_at)}</TableCell>
                   <TableCell>
