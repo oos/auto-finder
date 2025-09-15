@@ -192,6 +192,25 @@ const ViewButton = styled.a`
   }
 `;
 
+const ListingTag = styled.span`
+  display: inline-block;
+  padding: ${props => props.theme.spacing.xs} ${props => props.theme.spacing.sm};
+  border-radius: ${props => props.theme.borderRadius};
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: ${props => props.theme.spacing.sm};
+  background: ${props => {
+    switch (props.type) {
+      case 'dummy': return '#f39c12';
+      case 'real': return '#27ae60';
+      default: return '#95a5a6';
+    }
+  }};
+  color: ${props => props.theme.colors.white};
+`;
+
 const Pagination = styled.div`
   display: flex;
   justify-content: center;
@@ -344,6 +363,15 @@ const Listings = () => {
   const formatMileage = (mileage) => {
     if (!mileage) return 'N/A';
     return new Intl.NumberFormat('en-IE').format(mileage) + ' km';
+  };
+
+  const getListingType = (sourceSite) => {
+    // Dummy listings have source_site of 'sample' or 'lewismotors' (our test data)
+    if (sourceSite === 'sample' || sourceSite === 'lewismotors') {
+      return 'dummy';
+    }
+    // Real listings come from actual car websites
+    return 'real';
   };
 
   if (isLoading && !data) {
@@ -513,6 +541,9 @@ const Listings = () => {
               />
             )}
             <ListingContent>
+              <ListingTag type={getListingType(listing.source_site)}>
+                {getListingType(listing.source_site) === 'dummy' ? 'Dummy Data' : 'Real Listing'}
+              </ListingTag>
               <ListingTitle>{listing.title}</ListingTitle>
               <ListingPrice>{formatPrice(listing.price)}</ListingPrice>
               <ListingLocation>📍 {listing.location}</ListingLocation>
