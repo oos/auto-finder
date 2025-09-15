@@ -9,21 +9,39 @@ scraping_bp = Blueprint('scraping', __name__)
 
 def scrape_log_to_dict(log):
     """Convert scrape log query result to dict"""
-    return {
-        'id': log.id,
-        'site_name': log.site_name,
-        'started_at': log.started_at.isoformat(),
-        'completed_at': log.completed_at.isoformat() if log.completed_at else None,
-        'status': log.status,
-        'listings_found': log.listings_found,
-        'listings_new': log.listings_new,
-        'listings_updated': log.listings_updated,
-        'listings_removed': log.listings_removed,
-        'pages_scraped': log.pages_scraped,
-        'errors': json.loads(log.errors) if log.errors else [],
-        'notes': None,  # Handle missing notes column
-        'is_blocked': log.is_blocked
-    }
+    try:
+        return {
+            'id': getattr(log, 'id', None),
+            'site_name': getattr(log, 'site_name', 'unknown'),
+            'started_at': getattr(log, 'started_at', datetime.utcnow()).isoformat() if getattr(log, 'started_at', None) else None,
+            'completed_at': getattr(log, 'completed_at', None).isoformat() if getattr(log, 'completed_at', None) else None,
+            'status': getattr(log, 'status', 'unknown'),
+            'listings_found': getattr(log, 'listings_found', 0),
+            'listings_new': getattr(log, 'listings_new', 0),
+            'listings_updated': getattr(log, 'listings_updated', 0),
+            'listings_removed': getattr(log, 'listings_removed', 0),
+            'pages_scraped': getattr(log, 'pages_scraped', 0),
+            'errors': json.loads(getattr(log, 'errors', '[]')) if getattr(log, 'errors', None) else [],
+            'notes': getattr(log, 'notes', None),
+            'is_blocked': getattr(log, 'is_blocked', False)
+        }
+    except Exception as e:
+        # Fallback for any parsing errors
+        return {
+            'id': getattr(log, 'id', None),
+            'site_name': 'unknown',
+            'started_at': None,
+            'completed_at': None,
+            'status': 'error',
+            'listings_found': 0,
+            'listings_new': 0,
+            'listings_updated': 0,
+            'listings_removed': 0,
+            'pages_scraped': 0,
+            'errors': [str(e)],
+            'notes': None,
+            'is_blocked': False
+        }
 
 @scraping_bp.route('/status', methods=['GET'])
 def get_scraping_status():

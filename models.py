@@ -81,7 +81,13 @@ class UserSettings(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def get_approved_locations(self):
-        return json.loads(self.approved_locations)
+        try:
+            if self.approved_locations:
+                return json.loads(self.approved_locations)
+            else:
+                return []
+        except (json.JSONDecodeError, TypeError):
+            return []
     
     def set_approved_locations(self, locations):
         self.approved_locations = json.dumps(locations)
