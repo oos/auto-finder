@@ -113,133 +113,20 @@ def start_scraping():
         db.session.add(scrape_log)
         db.session.commit()
         
-        # Import and run the scraping engine
-        try:
-            # Try Lewis Motors engine first (focused approach)
-            try:
-                from scraping_engine_lewis import LewisMotorsScrapingEngine
-                engine_class = LewisMotorsScrapingEngine
-                engine_type = "lewismotors"
-            except ImportError:
-                # Fallback to simple scraping engine
-                try:
-                    from scraping_engine_simple import SimpleCarScrapingEngine
-                    engine_class = SimpleCarScrapingEngine
-                    engine_type = "simple"
-                except ImportError:
-                    # Try full scraping engine
-                    try:
-                        from scraping_engine import CarScrapingEngine
-                        engine_class = CarScrapingEngine
-                        engine_type = "full"
-                    except ImportError as e:
-                        # If all fail, create a minimal fallback
-                        class MinimalScrapingEngine:
-                            def run_full_scrape(self, user_id=None, app_context=None):
-                                # Generate sample data directly
-                                sample_listings = []
-                                for i in range(15):
-                                    listing = {
-                                        'title': f'2022 Sample Car {i+1}',
-                                        'price': 15000 + (i * 1000),
-                                        'location': 'Dublin',
-                                        'url': f'https://example.com/sample-car-{i+1}',
-                                        'image_url': f'https://via.placeholder.com/300x200?text=Sample+Car+{i+1}',
-                                        'image_hash': f'sample_hash_{i+1}',
-                                        'source_site': 'sample',
-                                        'first_seen': datetime.utcnow(),
-                                        'make': 'Sample',
-                                        'model': 'Car',
-                                        'year': 2022,
-                                        'mileage': 50000 + (i * 1000),
-                                        'fuel_type': 'Petrol',
-                                        'transmission': 'Manual'
-                                    }
-                                    sample_listings.append(listing)
-                                return sample_listings
-                        
-                        engine_class = MinimalScrapingEngine
-                        engine_type = "minimal_fallback"
-            
-            # Generate sample data directly to test the system
-            try:
-                from models import CarListing
-                import random
-                
-                # Generate 10 sample Lewis Motors listings
-                makes_models = [
-                    ('Toyota', 'Corolla'), ('Ford', 'Focus'), ('Volkswagen', 'Golf'),
-                    ('Hyundai', 'i30'), ('Nissan', 'Qashqai'), ('Honda', 'Civic'),
-                    ('BMW', '3 Series'), ('Audi', 'A3'), ('Mercedes', 'C-Class'),
-                    ('Kia', 'Ceed')
-                ]
-                
-                locations = ['Dublin', 'Cork', 'Galway', 'Limerick', 'Waterford']
-                listings_created = 0
-                
-                for i in range(10):
-                    make, model = random.choice(makes_models)
-                    year = random.randint(2018, 2023)
-                    
-                    listing_data = {
-                        'title': f"{year} {make} {model}",
-                        'price': random.randint(15000, 35000),
-                        'location': random.choice(locations),
-                        'url': f"https://www.lewismotors.ie/used-cars/{make.lower()}-{model.lower().replace(' ', '-')}-{year}-{i+1}",
-                        'image_url': f"https://via.placeholder.com/300x200?text={make}+{model}",
-                        'image_hash': f"lewis_hash_{i+1}",
-                        'source_site': 'lewismotors',
-                        'first_seen': datetime.utcnow(),
-                        'make': make,
-                        'model': model,
-                        'year': year,
-                        'mileage': random.randint(10000, 150000),
-                        'fuel_type': random.choice(['Petrol', 'Diesel', 'Hybrid', 'Electric']),
-                        'transmission': random.choice(['Manual', 'Automatic'])
-                    }
-                    
-                    # Check if listing already exists
-                    existing = CarListing.query.filter_by(url=listing_data['url']).first()
-                    if not existing:
-                        listing = CarListing(**listing_data)
-                        db.session.add(listing)
-                        listings_created += 1
-                
-                db.session.commit()
-                
-                # Update scrape log
-                scrape_log.status = 'completed'
-                scrape_log.completed_at = datetime.utcnow()
-                scrape_log.listings_found = listings_created
-                scrape_log.notes = f'Scraping completed successfully. Generated {listings_created} new Lewis Motors listings.'
-                
-            except Exception as e:
-                # Update scrape log with error
-                scrape_log.status = 'failed'
-                scrape_log.completed_at = datetime.utcnow()
-                scrape_log.errors = str(e)
-                scrape_log.notes = f'Scraping failed: {str(e)}'
-            
-            finally:
-                db.session.commit()
-            
-            return jsonify({
-                'message': f'Scraping started successfully using {engine_type} engine',
-                'scrape_log_id': scrape_log.id,
-                'engine_type': engine_type
-            }), 200
-            
-        except ImportError as e:
-            # Fallback if no scraping engine is available
-            scrape_log.status = 'failed'
-            scrape_log.completed_at = datetime.utcnow()
-            scrape_log.errors = f'No scraping engine available: {str(e)}'
-            db.session.commit()
-            
-            return jsonify({
-                'error': 'No scraping engine available',
-                'details': str(e)
-            }), 500
+        # For now, just mark as completed since we're not doing real scraping yet
+        # This will be replaced with actual scraping logic when ready
+        scrape_log.status = 'completed'
+        scrape_log.completed_at = datetime.utcnow()
+        scrape_log.listings_found = 0
+        scrape_log.notes = 'Scraping endpoint ready - no actual scraping implemented yet'
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Scraping endpoint ready - no actual scraping implemented yet',
+            'scrape_log_id': scrape_log.id,
+            'engine_type': 'none'
+        }), 200
         
     except Exception as e:
         db.session.rollback()
