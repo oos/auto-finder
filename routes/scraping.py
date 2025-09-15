@@ -113,33 +113,33 @@ def start_scraping():
         db.session.add(scrape_log)
         db.session.commit()
         
-        # Try to use the real scraping engine
+        # Try to use the adaptive scraping engine
         try:
-            from scraping_engine_real import RealCarScrapingEngine
+            from scraping_engine_adaptive import AdaptiveCarScrapingEngine
             
-            # Run the real scraping engine
-            engine = RealCarScrapingEngine()
+            # Run the adaptive scraping engine
+            engine = AdaptiveCarScrapingEngine()
             listings = engine.run_full_scrape(user_id, app.app_context())
             
             # Update scrape log with results
             scrape_log.status = 'completed'
             scrape_log.completed_at = datetime.utcnow()
             scrape_log.listings_found = len(listings) if listings else 0
-            scrape_log.notes = f'Real scraping completed. Found {len(listings) if listings else 0} listings from Carzone and DoneDeal'
+            scrape_log.notes = f'Adaptive scraping completed. Found {len(listings) if listings else 0} real listings from Irish car websites'
             
         except ImportError:
-            # Fallback if real scraping engine not available
+            # Fallback if adaptive scraping engine not available
             scrape_log.status = 'completed'
             scrape_log.completed_at = datetime.utcnow()
             scrape_log.listings_found = 0
-            scrape_log.notes = 'Real scraping engine not available - using fallback'
+            scrape_log.notes = 'Adaptive scraping engine not available - using fallback'
             
         except Exception as e:
             # Handle any errors
             scrape_log.status = 'failed'
             scrape_log.completed_at = datetime.utcnow()
             scrape_log.errors = str(e)
-            scrape_log.notes = f'Real scraping failed: {str(e)}'
+            scrape_log.notes = f'Adaptive scraping failed: {str(e)}'
         
         db.session.commit()
         
