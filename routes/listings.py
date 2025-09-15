@@ -382,3 +382,89 @@ def search_listings():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@listings_bp.route('/delete-dummy', methods=['POST'])
+@jwt_required()
+def delete_dummy_listings():
+    """Delete only dummy/test listings"""
+    try:
+        user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
+        
+        # Delete only dummy/test listings
+        dummy_listings_deleted = CarListing.query.filter(
+            CarListing.source_site.in_(['sample', 'lewismotors'])
+        ).delete()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Dummy listings deleted successfully',
+            'dummy_listings_deleted': dummy_listings_deleted
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@listings_bp.route('/add-dummy', methods=['POST'])
+@jwt_required()
+def add_dummy_listings():
+    """Add dummy listings for testing"""
+    try:
+        user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
+        
+        # Generate 15 dummy listings
+        import random
+        makes_models = [
+            ('Toyota', 'Corolla'), ('Ford', 'Focus'), ('Volkswagen', 'Golf'),
+            ('Hyundai', 'i30'), ('Nissan', 'Qashqai'), ('Honda', 'Civic'),
+            ('BMW', '3 Series'), ('Audi', 'A3'), ('Mercedes', 'C-Class'),
+            ('Kia', 'Ceed'), ('Mazda', '3'), ('Skoda', 'Octavia'),
+            ('Peugeot', '308'), ('Renault', 'Clio'), ('Opel', 'Astra')
+        ]
+        
+        locations = ['Dublin', 'Cork', 'Galway', 'Limerick', 'Waterford', 'Kilkenny', 'Wexford']
+        listings_created = 0
+        
+        for i in range(15):
+            make, model = random.choice(makes_models)
+            year = random.randint(2018, 2023)
+            
+            listing_data = {
+                'title': f"{year} {make} {model}",
+                'price': random.randint(15000, 35000),
+                'location': random.choice(locations),
+                'url': f"https://example.com/dummy-car-{i+1}",
+                'image_url': f"https://via.placeholder.com/300x200?text={make}+{model}",
+                'image_hash': f"dummy_hash_{i+1}",
+                'source_site': 'sample',
+                'first_seen': datetime.utcnow(),
+                'make': make,
+                'model': model,
+                'year': year,
+                'mileage': random.randint(10000, 150000),
+                'fuel_type': random.choice(['Petrol', 'Diesel', 'Hybrid', 'Electric']),
+                'transmission': random.choice(['Manual', 'Automatic'])
+            }
+            
+            # Check if listing already exists
+            existing = CarListing.query.filter_by(url=listing_data['url']).first()
+            if not existing:
+                listing = CarListing(**listing_data)
+                db.session.add(listing)
+                listings_created += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Dummy listings added successfully',
+            'listings_created': listings_created
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500

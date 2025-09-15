@@ -358,3 +358,28 @@ def clear_all_data():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+@scraping_bp.route('/delete-failed', methods=['POST'])
+@jwt_required()
+def delete_failed_scrapes():
+    """Delete only failed scraping attempts"""
+    try:
+        user_id = get_jwt_identity()
+        # Convert string user_id to int for database query
+        user_id = int(user_id) if user_id else None
+        
+        # Delete only failed scraping logs
+        failed_logs_deleted = db.session.query(ScrapeLog).filter(
+            ScrapeLog.status.in_(['failed', 'error'])
+        ).delete()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Failed scrapes deleted successfully',
+            'failed_logs_deleted': failed_logs_deleted
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
