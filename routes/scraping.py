@@ -7,6 +7,15 @@ import json
 
 scraping_bp = Blueprint('scraping', __name__)
 
+def _safe_json_parse(json_str):
+    """Safely parse JSON string, return empty list if invalid"""
+    try:
+        if json_str and json_str.strip():
+            return json.loads(json_str)
+        return []
+    except (json.JSONDecodeError, TypeError):
+        return []
+
 def scrape_log_to_dict(log):
     """Convert scrape log query result to dict"""
     try:
@@ -21,7 +30,7 @@ def scrape_log_to_dict(log):
             'listings_updated': getattr(log, 'listings_updated', 0),
             'listings_removed': getattr(log, 'listings_removed', 0),
             'pages_scraped': getattr(log, 'pages_scraped', 0),
-            'errors': json.loads(getattr(log, 'errors', '[]')) if getattr(log, 'errors', None) else [],
+            'errors': _safe_json_parse(getattr(log, 'errors', '[]')),
             'notes': getattr(log, 'notes', None),
             'is_blocked': getattr(log, 'is_blocked', False)
         }
