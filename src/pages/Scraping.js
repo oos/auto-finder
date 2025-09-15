@@ -236,7 +236,7 @@ const Scraping = () => {
   );
 
   // Fetch scraping logs
-  const { data: logs, isLoading: logsLoading, error: logsError } = useQuery(
+  const { data: logs, isLoading: logsLoading, error: logsError, refetch: refetchLogs } = useQuery(
     'scraping-logs',
     () => axios.get('/api/scraping/logs?per_page=50').then(res => res.data)
   );
@@ -358,6 +358,18 @@ const Scraping = () => {
     }
   };
 
+  const handleRefresh = async () => {
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries('scraping-status'),
+        refetchLogs()
+      ]);
+      toast.success('Data refreshed successfully!');
+    } catch (error) {
+      toast.error('Failed to refresh data');
+    }
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString();
   };
@@ -461,6 +473,14 @@ const Scraping = () => {
             style={{ backgroundColor: '#8e44ad' }}
           >
             {bulkDeleteMutation.isLoading ? 'Deleting...' : `Delete Selected (${selectedRows.size})`}
+          </Button>
+          
+          <Button
+            onClick={handleRefresh}
+            variant="success"
+            style={{ backgroundColor: '#27ae60' }}
+          >
+            🔄 Refresh Data
           </Button>
         </div>
       </Section>

@@ -352,6 +352,15 @@ const Listings = () => {
     }
   };
 
+  const handleRefresh = async () => {
+    try {
+      await refetch();
+      toast.success('Listings refreshed successfully!');
+    } catch (error) {
+      toast.error('Failed to refresh listings');
+    }
+  };
+
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-IE', {
       style: 'currency',
@@ -427,6 +436,12 @@ const Listings = () => {
             style={{ backgroundColor: '#27ae60' }}
           >
             {addDummyMutation.isLoading ? 'Adding...' : 'Add Dummy Data'}
+          </FilterButton>
+          <FilterButton 
+            onClick={handleRefresh}
+            style={{ backgroundColor: '#3498db' }}
+          >
+            🔄 Refresh
           </FilterButton>
         </SearchContainer>
       </Header>
