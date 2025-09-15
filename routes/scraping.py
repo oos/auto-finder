@@ -115,19 +115,25 @@ def start_scraping():
         
         # Import and run the scraping engine
         try:
-            # Try to import the full scraping engine first
+            # Try Lewis Motors engine first (focused approach)
             try:
-                from scraping_engine import CarScrapingEngine
-                engine_class = CarScrapingEngine
-                engine_type = "full"
+                from scraping_engine_lewis import LewisMotorsScrapingEngine
+                engine_class = LewisMotorsScrapingEngine
+                engine_type = "lewismotors"
             except ImportError:
                 # Fallback to simple scraping engine
                 try:
                     from scraping_engine_simple import SimpleCarScrapingEngine
                     engine_class = SimpleCarScrapingEngine
                     engine_type = "simple"
-                except ImportError as e:
-                    # If both fail, create a minimal fallback
+                except ImportError:
+                    # Try full scraping engine
+                    try:
+                        from scraping_engine import CarScrapingEngine
+                        engine_class = CarScrapingEngine
+                        engine_type = "full"
+                    except ImportError as e:
+                        # If all fail, create a minimal fallback
                     class MinimalScrapingEngine:
                         def run_full_scrape(self, user_id=None, app_context=None):
                             # Generate sample data directly
