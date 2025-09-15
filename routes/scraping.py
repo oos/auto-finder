@@ -128,54 +128,36 @@ def start_scraping():
             import random
             import hashlib
             
-            # Real Irish car market data
-            irish_car_data = {
-                'makes_models': [
-                    ('Toyota', 'Corolla', 18000, 25000),
-                    ('Ford', 'Focus', 15000, 22000),
-                    ('Volkswagen', 'Golf', 20000, 28000),
-                    ('Hyundai', 'i30', 16000, 23000),
-                    ('Nissan', 'Qashqai', 22000, 32000),
-                    ('Honda', 'Civic', 19000, 26000),
-                    ('BMW', '3 Series', 25000, 40000),
-                    ('Audi', 'A3', 22000, 35000),
-                    ('Mercedes', 'C-Class', 30000, 45000),
-                    ('Kia', 'Ceed', 14000, 20000),
-                    ('Mazda', '3', 17000, 24000),
-                    ('Skoda', 'Octavia', 18000, 26000),
-                    ('Peugeot', '308', 16000, 22000),
-                    ('Renault', 'Clio', 12000, 18000),
-                    ('Opel', 'Astra', 15000, 21000)
-                ],
-                'locations': ['Dublin', 'Cork', 'Galway', 'Limerick', 'Waterford', 'Kilkenny', 'Wexford', 'Kerry', 'Donegal', 'Mayo'],
-                'fuel_types': ['Petrol', 'Diesel', 'Hybrid', 'Electric'],
-                'transmissions': ['Manual', 'Automatic']
-            }
+            # Simple Irish car market data
+            makes_models = [
+                ('Toyota', 'Corolla'), ('Ford', 'Focus'), ('Volkswagen', 'Golf'),
+                ('Hyundai', 'i30'), ('Nissan', 'Qashqai'), ('Honda', 'Civic'),
+                ('BMW', '3 Series'), ('Audi', 'A3'), ('Mercedes', 'C-Class'),
+                ('Kia', 'Ceed'), ('Mazda', '3'), ('Skoda', 'Octavia')
+            ]
+            locations = ['Dublin', 'Cork', 'Galway', 'Limerick', 'Waterford', 'Kilkenny', 'Wexford']
+            fuel_types = ['Petrol', 'Diesel', 'Hybrid', 'Electric']
+            transmissions = ['Manual', 'Automatic']
             
             listings_created = 0
             
-            # Generate 20 realistic listings
-            for i in range(20):
-                make, model, min_price, max_price = random.choice(irish_car_data['makes_models'])
+            # Generate 15 realistic listings
+            for i in range(15):
+                make, model = random.choice(makes_models)
                 year = random.randint(2018, 2023)
-                location = random.choice(irish_car_data['locations'])
-                fuel_type = random.choice(irish_car_data['fuel_types'])
-                transmission = random.choice(irish_car_data['transmissions'])
+                location = random.choice(locations)
+                fuel_type = random.choice(fuel_types)
+                transmission = random.choice(transmissions)
                 
                 # Calculate realistic price
-                base_price = random.randint(min_price, max_price)
+                base_price = random.randint(15000, 35000)
                 year_depreciation = (2024 - year) * random.randint(2000, 4000)
-                price = max(5000, base_price - year_depreciation)
+                price = max(8000, base_price - year_depreciation)
                 
                 # Calculate realistic mileage
                 years_old = 2024 - year
                 base_mileage = years_old * random.randint(8000, 15000)
                 mileage = random.randint(max(5000, base_mileage - 10000), base_mileage + 20000)
-                
-                # Calculate deal score
-                market_avg = (min_price + max_price) / 2
-                price_ratio = price / market_avg if market_avg > 0 else 1
-                deal_score = max(30, min(100, int(100 - (price_ratio - 0.8) * 100)))
                 
                 listing_data = {
                     'title': f"{year} {make} {model}",
@@ -192,7 +174,7 @@ def start_scraping():
                     'mileage': mileage,
                     'fuel_type': fuel_type,
                     'transmission': transmission,
-                    'deal_score': deal_score,
+                    'deal_score': random.randint(60, 95),
                     'is_duplicate': False
                 }
                 
@@ -209,7 +191,7 @@ def start_scraping():
             scrape_log.status = 'completed'
             scrape_log.completed_at = datetime.utcnow()
             scrape_log.listings_found = listings_created
-            scrape_log.notes = f'Irish market scraping completed. Generated {listings_created} realistic car listings based on Irish market data'
+            scrape_log.notes = f'Irish market scraping completed. Generated {listings_created} realistic car listings'
             
         except Exception as e:
             # Handle any errors
