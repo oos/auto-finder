@@ -241,13 +241,28 @@ const Scraping = () => {
     () => axios.get('/api/scraping/logs?per_page=50').then(res => res.data)
   );
 
+  // Fetch scraping health status
+  const { data: health, isLoading: healthLoading, refetch: refetchHealth } = useQuery(
+    'scraping-health',
+    () => axios.get('/api/scraping/monitor/health').then(res => res.data),
+    { refetchInterval: 30000 } // Refetch every 30 seconds
+  );
+
+  // Fetch scraping statistics
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery(
+    'scraping-stats',
+    () => axios.get('/api/scraping/monitor/stats?days=7').then(res => res.data)
+  );
+
   // Start scraping mutation
   const startScrapingMutation = useMutation(
     () => axios.post('/api/scraping/start'),
     {
-      onSuccess: () => {
-        toast.success('Scraping started successfully!');
+      onSuccess: (response) => {
+        const data = response.data;
+        toast.success(`Real scraping started! Found ${data.listings_found || 0} listings`);
         queryClient.invalidateQueries('scraping-status');
+        queryClient.invalidateQueries('scraping-logs');
       },
       onError: (error) => {
         toast.error(error.response?.data?.error || 'Failed to start scraping');
@@ -297,6 +312,52 @@ const Scraping = () => {
       },
       onError: (error) => {
         toast.error(error.response?.data?.error || 'Failed to delete selected scrapes');
+      },
+    }
+  );
+
+  // Test scraping mutation
+  const testScrapingMutation = useMutation(
+    (site) => axios.post('/api/scraping/test', { site }),
+    {
+      onSuccess: (response) => {
+        const data = response.data;
+        toast.success(`Test completed for ${data.site_tested}! Found ${data.listings_found} listings`);
+        queryClient.invalidateQueries('scraping-logs');
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.error || 'Test failed');
+      },
+    }
+  );
+
+  // Run test suite mutation
+  const testSuiteMutation = useMutation(
+    () => axios.post('/api/scraping/monitor/test-suite'),
+    {
+      onSuccess: (response) => {
+        toast.success('Test suite completed successfully!');
+        queryClient.invalidateQueries('scraping-health');
+        queryClient.invalidateQueries('scraping-stats');
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.error || 'Test suite failed');
+      },
+    }
+  );
+
+  // Cleanup old data mutation
+  const cleanupMutation = useMutation(
+    (daysOld) => axios.post('/api/scraping/monitor/cleanup', { days_old: daysOld }),
+    {
+      onSuccess: (response) => {
+        const data = response.data;
+        toast.success(`Cleanup completed! Removed ${data.total_cleaned} old records`);
+        queryClient.invalidateQueries('scraping-logs');
+        queryClient.invalidateQueries('scraping-stats');
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.error || 'Cleanup failed');
       },
     }
   );
@@ -362,11 +423,27 @@ const Scraping = () => {
     try {
       await Promise.all([
         queryClient.invalidateQueries('scraping-status'),
-        refetchLogs()
+        refetchLogs(),
+        refetchHealth(),
+        refetchStats()
       ]);
       toast.success('Data refreshed successfully!');
     } catch (error) {
       toast.error('Failed to refresh data');
+    }
+  };
+
+  const handleTestScraping = async (site) => {
+    await testScrapingMutation.mutateAsync(site);
+  };
+
+  const handleRunTestSuite = async () => {
+    await testSuiteMutation.mutateAsync();
+  };
+
+  const handleCleanup = async () => {
+    if (window.confirm('Are you sure you want to clean up old data? This will remove logs and listings older than 30 days.')) {
+      await cleanupMutation.mutateAsync(30);
     }
   };
 
@@ -413,10 +490,39 @@ const Scraping = () => {
       <Title>Scraping Management</Title>
 
       <InfoBox>
-        <strong>How it works:</strong> The scraping system automatically collects car listings from multiple Irish websites. 
-        It runs daily and processes listings to detect duplicates, calculate deal scores, and send email notifications. 
-        You can manually start/stop scraping and monitor the progress here.
+        <strong>Real Web Scraping System:</strong> This system scrapes live car listings from Irish websites (Carzone.ie, DoneDeal.ie). 
+        It processes real data, detects duplicates, calculates deal scores, and stores everything in the database. 
+        Use the monitoring tools below to check system health and performance.
       </InfoBox>
+
+      {/* System Health */}
+      {health && (
+        <Section>
+          <SectionTitle>System Health</SectionTitle>
+          <StatusCard>
+            <StatusItem status={health.overall_status === 'healthy' ? 'completed' : 'failed'}>
+              <StatusValue>{health.overall_status === 'healthy' ? '✅' : '❌'}</StatusValue>
+              <StatusLabel>
+                {health.overall_status === 'healthy' ? 'All Systems Healthy' : 'System Issues Detected'}
+              </StatusLabel>
+            </StatusItem>
+            
+            {health.sites && Object.entries(health.sites).map(([site, siteHealth]) => (
+              <StatusItem key={site} status={siteHealth.status === 'healthy' ? 'completed' : 'failed'}>
+                <StatusValue>{siteHealth.accessible ? '🌐' : '🚫'}</StatusValue>
+                <StatusLabel>
+                  {site.charAt(0).toUpperCase() + site.slice(1)}
+                  {siteHealth.response_time && (
+                    <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                      {siteHealth.response_time.toFixed(2)}s
+                    </div>
+                  )}
+                </StatusLabel>
+              </StatusItem>
+            ))}
+          </StatusCard>
+        </Section>
+      )}
 
       {/* Current Status */}
       <Section>
@@ -481,6 +587,42 @@ const Scraping = () => {
             style={{ backgroundColor: '#27ae60' }}
           >
             🔄 Refresh Data
+          </Button>
+          
+          <Button
+            onClick={() => handleTestScraping('carzone')}
+            disabled={testScrapingMutation.isLoading}
+            variant="success"
+            style={{ backgroundColor: '#3498db' }}
+          >
+            {testScrapingMutation.isLoading ? 'Testing...' : 'Test Carzone'}
+          </Button>
+          
+          <Button
+            onClick={() => handleTestScraping('donedeal')}
+            disabled={testScrapingMutation.isLoading}
+            variant="success"
+            style={{ backgroundColor: '#9b59b6' }}
+          >
+            {testScrapingMutation.isLoading ? 'Testing...' : 'Test DoneDeal'}
+          </Button>
+          
+          <Button
+            onClick={handleRunTestSuite}
+            disabled={testSuiteMutation.isLoading}
+            variant="success"
+            style={{ backgroundColor: '#e67e22' }}
+          >
+            {testSuiteMutation.isLoading ? 'Running...' : 'Run Test Suite'}
+          </Button>
+          
+          <Button
+            onClick={handleCleanup}
+            disabled={cleanupMutation.isLoading}
+            variant="danger"
+            style={{ backgroundColor: '#e74c3c' }}
+          >
+            {cleanupMutation.isLoading ? 'Cleaning...' : 'Cleanup Old Data'}
           </Button>
         </div>
       </Section>
@@ -620,9 +762,60 @@ const Scraping = () => {
       </Section>
 
       {/* Statistics */}
+      {stats && (
+        <Section>
+          <SectionTitle>Scraping Statistics (Last 7 Days)</SectionTitle>
+          <StatusCard>
+            <StatusItem>
+              <StatusValue>{stats.total_scrapes || 0}</StatusValue>
+              <StatusLabel>Total Scrapes</StatusLabel>
+            </StatusItem>
+            
+            <StatusItem>
+              <StatusValue>{stats.successful_scrapes || 0}</StatusValue>
+              <StatusLabel>Successful Scrapes</StatusLabel>
+            </StatusItem>
+            
+            <StatusItem>
+              <StatusValue>{stats.success_rate || 0}%</StatusValue>
+              <StatusLabel>Success Rate</StatusLabel>
+            </StatusItem>
+            
+            <StatusItem>
+              <StatusValue>{stats.total_listings || 0}</StatusValue>
+              <StatusLabel>Total Listings</StatusLabel>
+            </StatusItem>
+            
+            <StatusItem>
+              <StatusValue>{stats.recent_listings || 0}</StatusValue>
+              <StatusLabel>Recent Listings</StatusLabel>
+            </StatusItem>
+          </StatusCard>
+          
+          {stats.by_source && Object.keys(stats.by_source).length > 0 && (
+            <div style={{ marginTop: '1rem' }}>
+              <h4 style={{ marginBottom: '0.5rem', color: '#666' }}>Listings by Source:</h4>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                {Object.entries(stats.by_source).map(([source, count]) => (
+                  <div key={source} style={{ 
+                    background: '#f8f9fa', 
+                    padding: '0.5rem 1rem', 
+                    borderRadius: '4px',
+                    fontSize: '0.9rem'
+                  }}>
+                    <strong>{source}:</strong> {count}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Section>
+      )}
+
+      {/* Recent Activity Summary */}
       {recentLogs.length > 0 && (
         <Section>
-          <SectionTitle>Last 24 Hours Summary</SectionTitle>
+          <SectionTitle>Recent Activity Summary</SectionTitle>
           <StatusCard>
             <StatusItem>
               <StatusValue>
