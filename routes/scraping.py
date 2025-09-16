@@ -431,3 +431,33 @@ def cleanup_old_data():
     except Exception as e:
         logger.error(f"Cleanup failed: {e}")
         return jsonify({'error': str(e)}), 500
+
+@scraping_bp.route('/test-public', methods=['POST'])
+def test_scraping_public():
+    """Public test endpoint for scraping (no authentication required)"""
+    try:
+        from scraping_engine_real import RealCarScrapingEngine
+        from data_processor import DataProcessor
+        
+        # Get site from request
+        data = request.get_json() or {}
+        site_name = data.get('site', 'carzone')
+        
+        # Initialize scrapers
+        scraping_engine = RealCarScrapingEngine()
+        data_processor = DataProcessor()
+        
+        # Test scrape single site with 1 page
+        logger.info(f"Public test scraping for {site_name}")
+        test_listings = scraping_engine.scrape_single_site(site_name, max_pages=1)
+        
+        return jsonify({
+            'message': f'Public test completed for {site_name}',
+            'site_tested': site_name,
+            'listings_found': len(test_listings),
+            'listings': test_listings[:3] if test_listings else []  # Show first 3 listings
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Public test scraping failed: {e}")
+        return jsonify({'error': str(e)}), 500
