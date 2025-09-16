@@ -446,6 +446,30 @@ def add_port_columns():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/fix-historical-listings', methods=['POST'])
+def fix_historical_listings():
+    """Update historical listings from irish_market to sample source_site"""
+    try:
+        from sqlalchemy import text
+        
+        # Update all listings with source_site 'irish_market' to 'sample'
+        result = db.session.execute(text("""
+            UPDATE car_listings 
+            SET source_site = 'sample' 
+            WHERE source_site = 'irish_market'
+        """))
+        db.session.commit()
+        
+        updated_count = result.rowcount
+        
+        return jsonify({
+            'message': f'Successfully updated {updated_count} historical listings from irish_market to sample',
+            'updated_count': updated_count
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
     # For all other routes, serve the React app
     try:
         return send_from_directory(app.static_folder, 'index.html')
