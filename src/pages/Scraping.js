@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import styled from 'styled-components';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useAuth } from '../contexts/AuthContext';
 
 const Container = styled.div`
   max-width: 1200px;
@@ -221,12 +222,99 @@ const InfoBox = styled.div`
   margin-bottom: ${props => props.theme.spacing.lg};
 `;
 
+const LoginForm = styled.div`
+  background: ${props => props.theme.colors.white};
+  padding: ${props => props.theme.spacing.xl};
+  border-radius: ${props => props.theme.borderRadius};
+  box-shadow: ${props => props.theme.boxShadow};
+  max-width: 400px;
+  margin: 0 auto;
+  text-align: center;
+`;
+
+const FormTitle = styled.h2`
+  color: ${props => props.theme.colors.primary};
+  margin-bottom: ${props => props.theme.spacing.lg};
+`;
+
+const FormGroup = styled.div`
+  margin-bottom: ${props => props.theme.spacing.lg};
+  text-align: left;
+`;
+
+const Label = styled.label`
+  display: block;
+  margin-bottom: ${props => props.theme.spacing.sm};
+  color: ${props => props.theme.colors.dark};
+  font-weight: 500;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: ${props => props.theme.spacing.md};
+  border: 1px solid ${props => props.theme.colors.lightGray};
+  border-radius: ${props => props.theme.borderRadius};
+  font-size: 1rem;
+  
+  &:focus {
+    outline: none;
+    border-color: ${props => props.theme.colors.primary};
+  }
+`;
+
+const LoginButton = styled.button`
+  width: 100%;
+  background: ${props => props.theme.colors.primary};
+  color: ${props => props.theme.colors.white};
+  padding: ${props => props.theme.spacing.md};
+  border: none;
+  border-radius: ${props => props.theme.borderRadius};
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #2980b9;
+  }
+  
+  &:disabled {
+    background: ${props => props.theme.colors.lightGray};
+    cursor: not-allowed;
+  }
+`;
+
+const TestButton = styled.button`
+  background: #27ae60;
+  color: white;
+  padding: ${props => props.theme.spacing.md} ${props => props.theme.spacing.lg};
+  border: none;
+  border-radius: ${props => props.theme.borderRadius};
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin: ${props => props.theme.spacing.md};
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #229954;
+  }
+  
+  &:disabled {
+    background: ${props => props.theme.colors.lightGray};
+    cursor: not-allowed;
+  }
+`;
+
 const Scraping = () => {
   const queryClient = useQueryClient();
+  const { user, login } = useAuth();
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Fetch scraping status
   const { data: status, isLoading: statusLoading, error: statusError } = useQuery(
@@ -447,6 +535,31 @@ const Scraping = () => {
     }
   };
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    try {
+      const result = await login(loginForm.email, loginForm.password);
+      if (result.success) {
+        toast.success('Login successful! You can now use the scraping features.');
+        setLoginForm({ email: '', password: '' });
+      }
+    } catch (error) {
+      toast.error('Login failed. Please try again.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handlePublicTest = async (site) => {
+    try {
+      const response = await axios.post('/api/scraping/test-public', { site });
+      toast.success(`Public test completed! Found ${response.data.listings_found} listings from ${site}`);
+    } catch (error) {
+      toast.error(`Public test failed: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString();
   };
@@ -462,6 +575,67 @@ const Scraping = () => {
     if (duration < 3600) return `${Math.floor(duration / 60)}m ${duration % 60}s`;
     return `${Math.floor(duration / 3600)}h ${Math.floor((duration % 3600) / 60)}m`;
   };
+
+  // Show login form if not authenticated
+  if (!user) {
+    return (
+      <Container>
+        <Title>Scraping Management</Title>
+        
+        <InfoBox>
+          <strong>Authentication Required:</strong> You need to be logged in to use the scraping features. 
+          Please log in below or use the public test buttons to test the scraping functionality.
+        </InfoBox>
+
+        <LoginForm>
+          <FormTitle>Login to Access Scraping</FormTitle>
+          <form onSubmit={handleLogin}>
+            <FormGroup>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                type="email"
+                id="email"
+                value={loginForm.email}
+                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                required
+                placeholder="Enter your email"
+              />
+            </FormGroup>
+            <FormGroup>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                type="password"
+                id="password"
+                value={loginForm.password}
+                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                required
+                placeholder="Enter your password"
+              />
+            </FormGroup>
+            <LoginButton type="submit" disabled={isLoggingIn}>
+              {isLoggingIn ? 'Logging in...' : 'Login'}
+            </LoginButton>
+          </form>
+        </LoginForm>
+
+        <Section>
+          <SectionTitle>Public Test (No Login Required)</SectionTitle>
+          <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+            <TestButton onClick={() => handlePublicTest('carzone')}>
+              Test Carzone Scraping
+            </TestButton>
+            <TestButton onClick={() => handlePublicTest('donedeal')}>
+              Test DoneDeal Scraping
+            </TestButton>
+          </div>
+          <InfoBox style={{ marginTop: '2rem' }}>
+            <strong>Note:</strong> Public tests are limited and don't save data to the database. 
+            For full functionality, please log in above.
+          </InfoBox>
+        </Section>
+      </Container>
+    );
+  }
 
   if (statusLoading) {
     return (

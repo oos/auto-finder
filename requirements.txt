@@ -5,22 +5,26 @@ Flask-JWT-Extended==4.4.4
 Flask-Migrate==4.0.5
 Werkzeug==2.3.7
 SQLAlchemy==2.0.21
-# undetected-chromedriver==3.5.4  # Disabled for free tier
-# selenium==4.15.2  # Disabled for free tier
+# Web scraping dependencies
 beautifulsoup4==4.12.2
 requests==2.31.0
 fake-useragent==1.4.0
-# Pillow==10.0.1  # Disabled for free tier
-# imagehash==4.3.1  # Disabled for free tier
+lxml==4.9.3
+# Disabled for free tier
+# undetected-chromedriver==3.5.4
+# selenium==4.15.2
+# Pillow==10.0.1
+# imagehash==4.3.1
+# Core dependencies
 python-dotenv==1.0.0
 celery==5.3.4
 redis==5.0.1
 sendgrid==6.10.0
 python-dateutil==2.8.2
-# difflib is part of Python standard library, no need to install
+# Database
 psycopg2-binary==2.9.7
+# Production server
 gunicorn==21.2.0
-# Render-specific optimizations
 whitenoise==6.6.0
+# System monitoring
 psutil==5.9.6
-fake-useragent==1.4.0
