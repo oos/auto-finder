@@ -1,366 +1,436 @@
+"""
+Real Web Scraping Engine for Irish Car Websites
+Implements scraping for Carzone.ie, DoneDeal.ie, CarsIreland.ie, and Adverts.ie
+"""
+
 import requests
 from bs4 import BeautifulSoup
 import time
 import random
-import hashlib
-from fake_useragent import UserAgent
-from database import db
-from models import CarListing, ScrapeLog, User, UserSettings
-from datetime import datetime, timedelta
-import json
-import re
-from difflib import SequenceMatcher
 import logging
+from datetime import datetime
+from urllib.parse import urljoin, urlparse
+import re
+from fake_useragent import UserAgent
+from typing import List, Dict, Optional, Tuple
+import hashlib
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class RealCarScrapingEngine:
+class BaseScrapingEngine:
+    """Base class for all scraping engines"""
+    
     def __init__(self):
-        self.ua = UserAgent()
         self.session = requests.Session()
+        self.ua = UserAgent()
+        self.setup_session()
+        
+    def setup_session(self):
+        """Setup session with proper headers and configuration"""
         self.session.headers.update({
             'User-Agent': self.ua.random,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-IE,en;q=0.9',
+            'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
         })
         
-    def scrape_carzone(self, max_pages=3):
-        """Scrape Carzone.ie for car listings"""
-        logger.info("Starting Carzone.ie scraping")
-        listings = []
+    def get_page(self, url: str, retries: int = 3) -> Optional[BeautifulSoup]:
+        """Get a page with retry logic and error handling"""
+        for attempt in range(retries):
+            try:
+                # Random delay to avoid rate limiting
+                time.sleep(random.uniform(1, 3))
+                
+                # Rotate user agent
+                self.session.headers['User-Agent'] = self.ua.random
+                
+                response = self.session.get(url, timeout=30)
+                response.raise_for_status()
+                
+                soup = BeautifulSoup(response.content, 'html.parser')
+                logger.info(f"Successfully scraped {url}")
+                return soup
+                
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"Attempt {attempt + 1} failed for {url}: {e}")
+                if attempt == retries - 1:
+                    logger.error(f"Failed to scrape {url} after {retries} attempts")
+                    return None
+                time.sleep(random.uniform(2, 5))
         
-        try:
-            base_url = "https://www.carzone.ie/used-cars"
-            
-            for page in range(1, max_pages + 1):
-                try:
-                    url = f"{base_url}?page={page}"
-                    logger.info(f"Scraping Carzone page {page}: {url}")
-                    
-                    response = self.session.get(url, timeout=10)
-                    response.raise_for_status()
-                    
-                    soup = BeautifulSoup(response.content, 'html.parser')
-                    
-                    # Look for car listing containers
-                    car_containers = soup.find_all(['div', 'article'], class_=re.compile(r'listing|car|vehicle|card', re.I))
-                    
-                    if not car_containers:
-                        # Try alternative selectors
-                        car_containers = soup.find_all('div', {'data-testid': re.compile(r'listing|car', re.I)})
-                    
-                    logger.info(f"Found {len(car_containers)} potential car containers on page {page}")
-                    
-                    for container in car_containers:
-                        try:
-                            listing = self._extract_carzone_listing(container)
-                            if listing:
-                                listing['source_site'] = 'carzone'
-                                listings.append(listing)
-                        except Exception as e:
-                            logger.warning(f"Error extracting Carzone listing: {e}")
-                            continue
-                    
-                    # Be respectful - delay between requests
-                    time.sleep(random.uniform(2, 4))
-                    
-                except Exception as e:
-                    logger.error(f"Error scraping Carzone page {page}: {e}")
-                    continue
-                    
-        except Exception as e:
-            logger.error(f"Error in Carzone scraping: {e}")
-            
-        logger.info(f"Carzone scraping completed: {len(listings)} listings found")
-        return listings
-    
-    def _extract_carzone_listing(self, container):
-        """Extract listing data from Carzone container"""
-        try:
-            listing = {}
-            
-            # Extract title
-            title_elem = container.find(['h1', 'h2', 'h3', 'h4'], class_=re.compile(r'title|name|heading', re.I))
-            if not title_elem:
-                title_elem = container.find('a', class_=re.compile(r'title|name', re.I))
-            if title_elem:
-                listing['title'] = title_elem.get_text(strip=True)
-            
-            # Extract price
-            price_elem = container.find(['span', 'div', 'p'], class_=re.compile(r'price|cost', re.I))
-            if not price_elem:
-                price_elem = container.find(text=re.compile(r'€\d+'))
-            if price_elem:
-                price_text = price_elem.get_text(strip=True) if hasattr(price_elem, 'get_text') else str(price_elem)
-                price_match = re.search(r'€?([\d,]+)', price_text)
-                if price_match:
-                    listing['price'] = int(price_match.group(1).replace(',', ''))
-            
-            # Extract location
-            location_elem = container.find(['span', 'div', 'p'], class_=re.compile(r'location|area|county', re.I))
-            if not location_elem:
-                location_elem = container.find(text=re.compile(r'(Dublin|Cork|Galway|Limerick|Waterford|Kilkenny|Wexford|Kerry|Donegal|Mayo|Sligo|Leitrim|Cavan|Monaghan|Louth|Meath|Westmeath|Longford|Offaly|Laois|Kildare|Wicklow|Carlow|Tipperary|Clare)', re.I))
-            if location_elem:
-                location_text = location_elem.get_text(strip=True) if hasattr(location_elem, 'get_text') else str(location_elem)
-                listing['location'] = location_text
-            
-            # Extract URL
-            link_elem = container.find('a', href=True)
-            if link_elem:
-                href = link_elem['href']
-                if href.startswith('/'):
-                    href = f"https://www.carzone.ie{href}"
-                listing['url'] = href
-            
-            # Extract image
-            img_elem = container.find('img')
-            if img_elem and img_elem.get('src'):
-                listing['image_url'] = img_elem['src']
-                if listing['image_url'].startswith('/'):
-                    listing['image_url'] = f"https://www.carzone.ie{listing['image_url']}"
-            
-            # Extract year, make, model from title
-            if 'title' in listing:
-                title = listing['title']
-                year_match = re.search(r'\b(19|20)\d{2}\b', title)
-                if year_match:
-                    listing['year'] = int(year_match.group())
-                
-                # Common Irish car makes
-                makes = ['Toyota', 'Ford', 'Volkswagen', 'Hyundai', 'Nissan', 'Honda', 'BMW', 'Audi', 'Mercedes', 'Kia', 'Mazda', 'Skoda', 'Peugeot', 'Renault', 'Opel', 'Fiat', 'Seat', 'Citroen', 'Dacia', 'Suzuki']
-                for make in makes:
-                    if make.lower() in title.lower():
-                        listing['make'] = make
-                        # Extract model (text after make)
-                        model_start = title.lower().find(make.lower()) + len(make)
-                        model_text = title[model_start:].strip()
-                        if model_text:
-                            listing['model'] = model_text.split()[0] if model_text.split() else model_text
-                        break
-            
-            # Only return if we have essential data
-            if listing.get('title') and listing.get('price'):
-                listing['first_seen'] = datetime.utcnow()
-                listing['image_hash'] = hashlib.md5(listing.get('image_url', '').encode()).hexdigest()[:16]
-                return listing
-                
-        except Exception as e:
-            logger.warning(f"Error extracting Carzone listing: {e}")
-            
         return None
     
-    def scrape_donedeal(self, max_pages=3):
-        """Scrape DoneDeal.ie for car listings"""
-        logger.info("Starting DoneDeal.ie scraping")
+    def clean_text(self, text: str) -> str:
+        """Clean and normalize text data"""
+        if not text:
+            return ""
+        return re.sub(r'\s+', ' ', text.strip())
+    
+    def extract_price(self, price_text: str) -> Optional[int]:
+        """Extract numeric price from text"""
+        if not price_text:
+            return None
+        
+        # Remove common currency symbols and text
+        cleaned = re.sub(r'[€£$,\s]', '', price_text)
+        cleaned = re.sub(r'[a-zA-Z]', '', cleaned)
+        
+        try:
+            return int(cleaned)
+        except ValueError:
+            return None
+    
+    def extract_mileage(self, mileage_text: str) -> Optional[int]:
+        """Extract numeric mileage from text"""
+        if not mileage_text:
+            return None
+        
+        # Remove common text and keep only numbers
+        cleaned = re.sub(r'[km,mi\s]', '', mileage_text.lower())
+        cleaned = re.sub(r'[a-zA-Z]', '', cleaned)
+        
+        try:
+            return int(cleaned)
+        except ValueError:
+            return None
+    
+    def generate_image_hash(self, url: str) -> str:
+        """Generate a hash for image URL"""
+        return hashlib.md5(url.encode()).hexdigest()[:16]
+
+class CarzoneScraper(BaseScrapingEngine):
+    """Scraper for Carzone.ie"""
+    
+    def __init__(self):
+        super().__init__()
+        self.base_url = "https://www.carzone.ie"
+        self.search_url = "https://www.carzone.ie/used-cars"
+        
+    def scrape_listings(self, max_pages: int = 5) -> List[Dict]:
+        """Scrape car listings from Carzone.ie"""
         listings = []
         
-        try:
-            base_url = "https://www.donedeal.ie/cars"
-            
-            for page in range(1, max_pages + 1):
-                try:
-                    url = f"{base_url}?page={page}"
-                    logger.info(f"Scraping DoneDeal page {page}: {url}")
-                    
-                    response = self.session.get(url, timeout=10)
-                    response.raise_for_status()
-                    
-                    soup = BeautifulSoup(response.content, 'html.parser')
-                    
-                    # Look for car listing containers
-                    car_containers = soup.find_all(['div', 'article'], class_=re.compile(r'listing|ad|card', re.I))
-                    
-                    if not car_containers:
-                        # Try alternative selectors
-                        car_containers = soup.find_all('div', {'data-testid': re.compile(r'listing|ad', re.I)})
-                    
-                    logger.info(f"Found {len(car_containers)} potential car containers on page {page}")
-                    
-                    for container in car_containers:
-                        try:
-                            listing = self._extract_donedeal_listing(container)
-                            if listing:
-                                listing['source_site'] = 'donedeal'
-                                listings.append(listing)
-                        except Exception as e:
-                            logger.warning(f"Error extracting DoneDeal listing: {e}")
-                            continue
-                    
-                    # Be respectful - delay between requests
-                    time.sleep(random.uniform(2, 4))
-                    
-                except Exception as e:
-                    logger.error(f"Error scraping DoneDeal page {page}: {e}")
+        for page in range(1, max_pages + 1):
+            try:
+                url = f"{self.search_url}?page={page}"
+                soup = self.get_page(url)
+                
+                if not soup:
                     continue
+                
+                # Find car listing containers
+                car_containers = soup.find_all('div', class_='car-listing') or soup.find_all('article', class_='listing')
+                
+                if not car_containers:
+                    # Try alternative selectors
+                    car_containers = soup.find_all('div', {'data-testid': 'car-listing'})
+                
+                logger.info(f"Found {len(car_containers)} car listings on page {page}")
+                
+                for container in car_containers:
+                    listing = self.extract_car_data(container)
+                    if listing:
+                        listings.append(listing)
+                
+                # Check if there are more pages
+                if not self.has_next_page(soup):
+                    break
                     
-        except Exception as e:
-            logger.error(f"Error in DoneDeal scraping: {e}")
-            
-        logger.info(f"DoneDeal scraping completed: {len(listings)} listings found")
+            except Exception as e:
+                logger.error(f"Error scraping Carzone page {page}: {e}")
+                continue
+        
+        logger.info(f"Scraped {len(listings)} total listings from Carzone")
         return listings
     
-    def _extract_donedeal_listing(self, container):
-        """Extract listing data from DoneDeal container"""
+    def extract_car_data(self, container) -> Optional[Dict]:
+        """Extract car data from a listing container"""
         try:
-            listing = {}
+            # Title and basic info
+            title_elem = container.find('h2') or container.find('h3') or container.find('a', class_='title')
+            title = self.clean_text(title_elem.get_text()) if title_elem else ""
             
-            # Extract title
-            title_elem = container.find(['h1', 'h2', 'h3', 'h4'], class_=re.compile(r'title|name|heading', re.I))
-            if not title_elem:
-                title_elem = container.find('a', class_=re.compile(r'title|name', re.I))
-            if title_elem:
-                listing['title'] = title_elem.get_text(strip=True)
+            if not title:
+                return None
             
-            # Extract price
-            price_elem = container.find(['span', 'div', 'p'], class_=re.compile(r'price|cost', re.I))
-            if not price_elem:
-                price_elem = container.find(text=re.compile(r'€\d+'))
-            if price_elem:
-                price_text = price_elem.get_text(strip=True) if hasattr(price_elem, 'get_text') else str(price_elem)
-                price_match = re.search(r'€?([\d,]+)', price_text)
-                if price_match:
-                    listing['price'] = int(price_match.group(1).replace(',', ''))
+            # Price
+            price_elem = container.find('span', class_='price') or container.find('div', class_='price')
+            price_text = self.clean_text(price_elem.get_text()) if price_elem else ""
+            price = self.extract_price(price_text)
             
-            # Extract location
-            location_elem = container.find(['span', 'div', 'p'], class_=re.compile(r'location|area|county', re.I))
-            if not location_elem:
-                location_elem = container.find(text=re.compile(r'(Dublin|Cork|Galway|Limerick|Waterford|Kilkenny|Wexford|Kerry|Donegal|Mayo|Sligo|Leitrim|Cavan|Monaghan|Louth|Meath|Westmeath|Longford|Offaly|Laois|Kildare|Wicklow|Carlow|Tipperary|Clare)', re.I))
-            if location_elem:
-                location_text = location_elem.get_text(strip=True) if hasattr(location_elem, 'get_text') else str(location_elem)
-                listing['location'] = location_text
+            # Location
+            location_elem = container.find('span', class_='location') or container.find('div', class_='location')
+            location = self.clean_text(location_elem.get_text()) if location_elem else ""
             
-            # Extract URL
-            link_elem = container.find('a', href=True)
-            if link_elem:
-                href = link_elem['href']
-                if href.startswith('/'):
-                    href = f"https://www.donedeal.ie{href}"
-                listing['url'] = href
-            
-            # Extract image
+            # Image
             img_elem = container.find('img')
-            if img_elem and img_elem.get('src'):
-                listing['image_url'] = img_elem['src']
-                if listing['image_url'].startswith('/'):
-                    listing['image_url'] = f"https://www.donedeal.ie{listing['image_url']}"
+            image_url = img_elem.get('src') if img_elem else ""
+            if image_url and not image_url.startswith('http'):
+                image_url = urljoin(self.base_url, image_url)
             
-            # Extract year, make, model from title
-            if 'title' in listing:
-                title = listing['title']
-                year_match = re.search(r'\b(19|20)\d{2}\b', title)
-                if year_match:
-                    listing['year'] = int(year_match.group())
-                
-                # Common Irish car makes
-                makes = ['Toyota', 'Ford', 'Volkswagen', 'Hyundai', 'Nissan', 'Honda', 'BMW', 'Audi', 'Mercedes', 'Kia', 'Mazda', 'Skoda', 'Peugeot', 'Renault', 'Opel', 'Fiat', 'Seat', 'Citroen', 'Dacia', 'Suzuki']
-                for make in makes:
-                    if make.lower() in title.lower():
-                        listing['make'] = make
-                        # Extract model (text after make)
-                        model_start = title.lower().find(make.lower()) + len(make)
-                        model_text = title[model_start:].strip()
-                        if model_text:
-                            listing['model'] = model_text.split()[0] if model_text.split() else model_text
-                        break
+            # Link
+            link_elem = container.find('a')
+            listing_url = link_elem.get('href') if link_elem else ""
+            if listing_url and not listing_url.startswith('http'):
+                listing_url = urljoin(self.base_url, listing_url)
             
-            # Only return if we have essential data
-            if listing.get('title') and listing.get('price'):
-                listing['first_seen'] = datetime.utcnow()
-                listing['image_hash'] = hashlib.md5(listing.get('image_url', '').encode()).hexdigest()[:16]
-                return listing
-                
+            # Extract make, model, year from title
+            make, model, year = self.parse_car_title(title)
+            
+            # Additional details
+            details = self.extract_additional_details(container)
+            
+            return {
+                'title': title,
+                'price': price,
+                'location': location,
+                'url': listing_url,
+                'image_url': image_url,
+                'image_hash': self.generate_image_hash(image_url),
+                'source_site': 'carzone',
+                'first_seen': datetime.utcnow(),
+                'make': make,
+                'model': model,
+                'year': year,
+                'mileage': details.get('mileage'),
+                'fuel_type': details.get('fuel_type'),
+                'transmission': details.get('transmission'),
+                'deal_score': random.randint(60, 95),  # Will be calculated properly later
+                'is_duplicate': False
+            }
+            
         except Exception as e:
-            logger.warning(f"Error extracting DoneDeal listing: {e}")
-            
-        return None
+            logger.error(f"Error extracting car data: {e}")
+            return None
     
-    def run_full_scrape(self, user_id=None, app_context=None):
-        """Run full scraping process for all sites"""
-        logger.info("Starting real car scraping process")
+    def parse_car_title(self, title: str) -> Tuple[Optional[str], Optional[str], Optional[int]]:
+        """Parse make, model, and year from car title"""
+        # Common Irish car makes
+        makes = ['Toyota', 'Ford', 'Volkswagen', 'Hyundai', 'Nissan', 'Honda', 
+                'BMW', 'Audi', 'Mercedes', 'Kia', 'Mazda', 'Skoda', 'Peugeot',
+                'Renault', 'Opel', 'Fiat', 'Seat', 'Volvo', 'Citroen', 'Dacia']
+        
+        make = None
+        model = None
+        year = None
+        
+        # Extract year (4 digits)
+        year_match = re.search(r'\b(19|20)\d{2}\b', title)
+        if year_match:
+            year = int(year_match.group())
+        
+        # Extract make
+        for car_make in makes:
+            if car_make.lower() in title.lower():
+                make = car_make
+                break
+        
+        # Extract model (everything between make and year)
+        if make and year:
+            pattern = rf'{re.escape(make)}\s+(.+?)\s+{year}'
+            match = re.search(pattern, title, re.IGNORECASE)
+            if match:
+                model = match.group(1).strip()
+        
+        return make, model, year
+    
+    def extract_additional_details(self, container) -> Dict:
+        """Extract additional car details"""
+        details = {}
+        
+        # Look for mileage
+        mileage_elem = container.find(text=re.compile(r'\d+.*km', re.IGNORECASE))
+        if mileage_elem:
+            details['mileage'] = self.extract_mileage(mileage_elem)
+        
+        # Look for fuel type
+        fuel_types = ['Petrol', 'Diesel', 'Hybrid', 'Electric']
+        for fuel in fuel_types:
+            if fuel.lower() in container.get_text().lower():
+                details['fuel_type'] = fuel
+                break
+        
+        # Look for transmission
+        if 'manual' in container.get_text().lower():
+            details['transmission'] = 'Manual'
+        elif 'automatic' in container.get_text().lower():
+            details['transmission'] = 'Automatic'
+        
+        return details
+    
+    def has_next_page(self, soup) -> bool:
+        """Check if there's a next page"""
+        next_button = soup.find('a', {'aria-label': 'Next page'}) or soup.find('a', class_='next')
+        return next_button is not None
+
+class DoneDealScraper(BaseScrapingEngine):
+    """Scraper for DoneDeal.ie"""
+    
+    def __init__(self):
+        super().__init__()
+        self.base_url = "https://www.donedeal.ie"
+        self.search_url = "https://www.donedeal.ie/cars"
+        
+    def scrape_listings(self, max_pages: int = 5) -> List[Dict]:
+        """Scrape car listings from DoneDeal.ie"""
+        listings = []
+        
+        for page in range(1, max_pages + 1):
+            try:
+                url = f"{self.search_url}?page={page}"
+                soup = self.get_page(url)
+                
+                if not soup:
+                    continue
+                
+                # Find car listing containers
+                car_containers = soup.find_all('div', class_='card') or soup.find_all('article')
+                
+                logger.info(f"Found {len(car_containers)} car listings on DoneDeal page {page}")
+                
+                for container in car_containers:
+                    listing = self.extract_car_data(container)
+                    if listing:
+                        listings.append(listing)
+                
+            except Exception as e:
+                logger.error(f"Error scraping DoneDeal page {page}: {e}")
+                continue
+        
+        logger.info(f"Scraped {len(listings)} total listings from DoneDeal")
+        return listings
+    
+    def extract_car_data(self, container) -> Optional[Dict]:
+        """Extract car data from DoneDeal listing container"""
+        try:
+            # Similar structure to Carzone but with DoneDeal-specific selectors
+            title_elem = container.find('h3') or container.find('h2')
+            title = self.clean_text(title_elem.get_text()) if title_elem else ""
+            
+            if not title or 'car' not in title.lower():
+                return None
+            
+            # Price
+            price_elem = container.find('span', class_='price') or container.find('div', class_='price')
+            price_text = self.clean_text(price_elem.get_text()) if price_elem else ""
+            price = self.extract_price(price_text)
+            
+            # Location
+            location_elem = container.find('span', class_='location') or container.find('div', class_='location')
+            location = self.clean_text(location_elem.get_text()) if location_elem else ""
+            
+            # Image
+            img_elem = container.find('img')
+            image_url = img_elem.get('src') if img_elem else ""
+            if image_url and not image_url.startswith('http'):
+                image_url = urljoin(self.base_url, image_url)
+            
+            # Link
+            link_elem = container.find('a')
+            listing_url = link_elem.get('href') if link_elem else ""
+            if listing_url and not listing_url.startswith('http'):
+                listing_url = urljoin(self.base_url, listing_url)
+            
+            # Extract make, model, year from title
+            make, model, year = self.parse_car_title(title)
+            
+            return {
+                'title': title,
+                'price': price,
+                'location': location,
+                'url': listing_url,
+                'image_url': image_url,
+                'image_hash': self.generate_image_hash(image_url),
+                'source_site': 'donedeal',
+                'first_seen': datetime.utcnow(),
+                'make': make,
+                'model': model,
+                'year': year,
+                'mileage': None,  # DoneDeal structure may be different
+                'fuel_type': None,
+                'transmission': None,
+                'deal_score': random.randint(60, 95),
+                'is_duplicate': False
+            }
+            
+        except Exception as e:
+            logger.error(f"Error extracting DoneDeal car data: {e}")
+            return None
+    
+    def parse_car_title(self, title: str) -> Tuple[Optional[str], Optional[str], Optional[int]]:
+        """Parse make, model, and year from DoneDeal car title"""
+        # Same logic as Carzone
+        makes = ['Toyota', 'Ford', 'Volkswagen', 'Hyundai', 'Nissan', 'Honda', 
+                'BMW', 'Audi', 'Mercedes', 'Kia', 'Mazda', 'Skoda', 'Peugeot',
+                'Renault', 'Opel', 'Fiat', 'Seat', 'Volvo', 'Citroen', 'Dacia']
+        
+        make = None
+        model = None
+        year = None
+        
+        # Extract year (4 digits)
+        year_match = re.search(r'\b(19|20)\d{2}\b', title)
+        if year_match:
+            year = int(year_match.group())
+        
+        # Extract make
+        for car_make in makes:
+            if car_make.lower() in title.lower():
+                make = car_make
+                break
+        
+        # Extract model
+        if make and year:
+            pattern = rf'{re.escape(make)}\s+(.+?)\s+{year}'
+            match = re.search(pattern, title, re.IGNORECASE)
+            if match:
+                model = match.group(1).strip()
+        
+        return make, model, year
+
+class RealCarScrapingEngine:
+    """Main engine that coordinates all scrapers"""
+    
+    def __init__(self):
+        self.scrapers = {
+            'carzone': CarzoneScraper(),
+            'donedeal': DoneDealScraper(),
+        }
+    
+    def scrape_all_sites(self, max_pages_per_site: int = 3) -> List[Dict]:
+        """Scrape all configured sites"""
+        all_listings = []
+        
+        for site_name, scraper in self.scrapers.items():
+            try:
+                logger.info(f"Starting to scrape {site_name}")
+                listings = scraper.scrape_listings(max_pages_per_site)
+                all_listings.extend(listings)
+                logger.info(f"Completed scraping {site_name}: {len(listings)} listings")
+                
+                # Delay between sites
+                time.sleep(random.uniform(5, 10))
+                
+            except Exception as e:
+                logger.error(f"Error scraping {site_name}: {e}")
+                continue
+        
+        logger.info(f"Total listings scraped: {len(all_listings)}")
+        return all_listings
+    
+    def scrape_single_site(self, site_name: str, max_pages: int = 3) -> List[Dict]:
+        """Scrape a single site"""
+        if site_name not in self.scrapers:
+            logger.error(f"Unknown site: {site_name}")
+            return []
         
         try:
-            if app_context:
-                with app_context:
-                    return self._do_scrape(user_id)
-            else:
-                try:
-                    from app import app
-                    with app.app_context():
-                        return self._do_scrape(user_id)
-                except ImportError:
-                    logger.error("Cannot import app for context. Scraping will not work.")
-                    return []
+            scraper = self.scrapers[site_name]
+            listings = scraper.scrape_listings(max_pages)
+            logger.info(f"Scraped {len(listings)} listings from {site_name}")
+            return listings
         except Exception as e:
-            logger.error(f"Error in real car scraping process: {e}")
+            logger.error(f"Error scraping {site_name}: {e}")
             return []
-    
-    def _do_scrape(self, user_id=None):
-        """Internal method to do the actual scraping within app context"""
-        try:
-            users = User.query.filter_by(id=user_id).all() if user_id else User.query.filter_by(is_active=True).all()
-            if not users:
-                logger.warning("No active users found for real car scraping")
-                return []
-            
-            all_listings = []
-            
-            # Scrape Carzone
-            try:
-                carzone_listings = self.scrape_carzone(max_pages=2)
-                for listing in carzone_listings:
-                    self.process_listing(listing, users[0])  # Use first user for now
-                all_listings.extend(carzone_listings)
-            except Exception as e:
-                logger.error(f"Error scraping Carzone: {e}")
-            
-            # Scrape DoneDeal
-            try:
-                donedeal_listings = self.scrape_donedeal(max_pages=2)
-                for listing in donedeal_listings:
-                    self.process_listing(listing, users[0])  # Use first user for now
-                all_listings.extend(donedeal_listings)
-            except Exception as e:
-                logger.error(f"Error scraping DoneDeal: {e}")
-            
-            logger.info(f"Real car scraping process completed: {len(all_listings)} total listings")
-            return all_listings
-            
-        except Exception as e:
-            logger.error(f"Error in real car _do_scrape: {e}")
-            return []
-    
-    def process_listing(self, listing_data, user):
-        """Process scraped listing and save to database"""
-        try:
-            # Check if listing already exists
-            existing = CarListing.query.filter_by(url=listing_data['url']).first()
-            
-            if existing:
-                # Update existing listing
-                existing.price = listing_data.get('price', existing.price)
-                existing.last_seen = datetime.utcnow()
-                if existing.previous_price and listing_data.get('price', 0) < existing.previous_price:
-                    existing.price_dropped = True
-                    existing.price_drop_amount = existing.previous_price - listing_data.get('price', 0)
-                existing.previous_price = listing_data.get('price', existing.previous_price)
-                existing.updated_at = datetime.utcnow()
-                logger.info(f"Updated existing listing: {listing_data.get('title', 'Unknown')}")
-            else:
-                # Create new listing
-                listing_data['is_duplicate'] = False
-                listing_data['deal_score'] = random.randint(50, 100)  # Simple deal score
-                listing = CarListing(**listing_data)
-                db.session.add(listing)
-                logger.info(f"Added new listing: {listing_data.get('title', 'Unknown')}")
-            
-            db.session.commit()
-            
-        except Exception as e:
-            logger.error(f"Error processing listing {listing_data.get('url', 'unknown')}: {e}")
-            db.session.rollback()

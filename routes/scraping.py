@@ -3,6 +3,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from database import db
 from models import User, ScrapeLog, CarListing
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 import json
 
 scraping_bp = Blueprint('scraping', __name__)
@@ -99,12 +102,15 @@ def get_scraping_status():
 @scraping_bp.route('/start', methods=['POST'])
 @jwt_required()
 def start_scraping():
+    """Starts the real car scraping process."""
     try:
         user_id = get_jwt_identity()
-        # Convert string user_id to int for database query
         user_id = int(user_id) if user_id else None
-        user = User.query.get(user_id)
         
+        if not user_id:
+            return jsonify({'error': 'User not authenticated'}), 401
+
+        user = User.query.get(user_id)
         if not user or not user.settings:
             return jsonify({'error': 'User or settings not found'}), 404
         
@@ -113,104 +119,77 @@ def start_scraping():
         if running_scrapes > 0:
             return jsonify({'error': 'Scraping is already in progress'}), 409
         
-        # Create a scrape log entry
+        # Get scraping preferences from user settings
+        settings = user.settings
+        max_pages = settings.max_pages_per_site or 3
+
+        # Create a new scrape log entry
         scrape_log = ScrapeLog(
-            site_name='manual_scrape',
+            user_id=user_id,
+            site_name='real_scraping',
             status='running',
             started_at=datetime.utcnow()
         )
         db.session.add(scrape_log)
         db.session.commit()
-        
-        # Generate realistic Irish car market listings
+
         try:
-            from models import CarListing
-            import random
-            import hashlib
+            # Import real scraping engine
+            from scraping_engine_real import RealCarScrapingEngine
+            from data_processor import DataProcessor
+
+            # Initialize scrapers
+            scraping_engine = RealCarScrapingEngine()
+            data_processor = DataProcessor()
+
+            # Scrape all enabled sites
+            all_listings = []
             
-            # Simple Irish car market data
-            makes_models = [
-                ('Toyota', 'Corolla'), ('Ford', 'Focus'), ('Volkswagen', 'Golf'),
-                ('Hyundai', 'i30'), ('Nissan', 'Qashqai'), ('Honda', 'Civic'),
-                ('BMW', '3 Series'), ('Audi', 'A3'), ('Mercedes', 'C-Class'),
-                ('Kia', 'Ceed'), ('Mazda', '3'), ('Skoda', 'Octavia')
-            ]
-            locations = ['Dublin', 'Cork', 'Galway', 'Limerick', 'Waterford', 'Kilkenny', 'Wexford']
-            fuel_types = ['Petrol', 'Diesel', 'Hybrid', 'Electric']
-            transmissions = ['Manual', 'Automatic']
+            if settings.scrape_carzone:
+                logger.info("Scraping Carzone.ie")
+                carzone_listings = scraping_engine.scrape_single_site('carzone', max_pages)
+                all_listings.extend(carzone_listings)
             
-            listings_created = 0
-            
-            # Generate 15 realistic listings
-            for i in range(15):
-                make, model = random.choice(makes_models)
-                year = random.randint(2018, 2023)
-                location = random.choice(locations)
-                fuel_type = random.choice(fuel_types)
-                transmission = random.choice(transmissions)
-                
-                # Calculate realistic price
-                base_price = random.randint(15000, 35000)
-                year_depreciation = (2024 - year) * random.randint(2000, 4000)
-                price = max(8000, base_price - year_depreciation)
-                
-                # Calculate realistic mileage
-                years_old = 2024 - year
-                base_mileage = years_old * random.randint(8000, 15000)
-                mileage = random.randint(max(5000, base_mileage - 10000), base_mileage + 20000)
-                
-                listing_data = {
-                    'title': f"{year} {make} {model}",
-                    'price': price,
-                    'location': location,
-                    'url': f"https://www.irishcarwebsite.ie/used-cars/{make.lower()}-{model.lower().replace(' ', '-')}-{year}-{i+1}",
-                    'image_url': f"https://via.placeholder.com/300x200?text={make}+{model}+{year}",
-                    'image_hash': hashlib.md5(f"irish_market_{i+1}".encode()).hexdigest()[:16],
-                    'source_site': 'sample',
-                    'first_seen': datetime.utcnow(),
-                    'make': make,
-                    'model': model,
-                    'year': year,
-                    'mileage': mileage,
-                    'fuel_type': fuel_type,
-                    'transmission': transmission,
-                    'deal_score': random.randint(60, 95),
-                    'is_duplicate': False
-                }
-                
-                # Check if listing already exists
-                existing = CarListing.query.filter_by(url=listing_data['url']).first()
-                if not existing:
-                    listing = CarListing(**listing_data)
-                    db.session.add(listing)
-                    listings_created += 1
-            
-            db.session.commit()
-            
+            if settings.scrape_donedeal:
+                logger.info("Scraping DoneDeal.ie")
+                donedeal_listings = scraping_engine.scrape_single_site('donedeal', max_pages)
+                all_listings.extend(donedeal_listings)
+
+            # Process and store listings
+            logger.info(f"Processing {len(all_listings)} scraped listings")
+            processing_stats = data_processor.process_listings(all_listings, user_id)
+
             # Update scrape log with results
             scrape_log.status = 'completed'
             scrape_log.completed_at = datetime.utcnow()
-            scrape_log.listings_found = listings_created
-            scrape_log.notes = f'Dummy data generation completed. Generated {listings_created} sample car listings'
-            
+            scrape_log.listings_found = processing_stats['total_processed']
+            scrape_log.listings_new = processing_stats['new_listings']
+            scrape_log.listings_updated = processing_stats['updated_listings']
+            scrape_log.notes = f'Real scraping completed. New: {processing_stats["new_listings"]}, Updated: {processing_stats["updated_listings"]}, Duplicates: {processing_stats["duplicates_skipped"]}'
+
         except Exception as e:
             # Handle any errors
+            logger.error(f"Scraping failed: {e}")
             scrape_log.status = 'failed'
             scrape_log.completed_at = datetime.utcnow()
             scrape_log.errors = str(e)
-            scrape_log.notes = f'Irish market scraping failed: {str(e)}'
-        
+            scrape_log.notes = f'Real scraping failed: {str(e)}'
+
         db.session.commit()
-        
+
         return jsonify({
-            'message': 'Dummy data generation completed',
+            'message': 'Real car scraping completed',
             'scrape_log_id': scrape_log.id,
-            'engine_type': 'dummy',
-            'listings_found': scrape_log.listings_found
+            'engine_type': 'real',
+            'listings_found': scrape_log.listings_found,
+            'new_listings': processing_stats.get('new_listings', 0),
+            'updated_listings': processing_stats.get('updated_listings', 0),
+            'duplicates_skipped': processing_stats.get('duplicates_skipped', 0)
         }), 200
-        
+
     except Exception as e:
         db.session.rollback()
+        logger.error(f"Scraping route error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @scraping_bp.route('/stop', methods=['POST'])
@@ -383,4 +362,72 @@ def bulk_delete_scrapes():
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@scraping_bp.route('/monitor/health', methods=['GET'])
+@jwt_required()
+def get_scraping_health():
+    """Get scraping system health status"""
+    try:
+        from scraping_monitor import ScrapingMonitor
+        
+        monitor = ScrapingMonitor()
+        health_status = monitor.test_scraping_health()
+        
+        return jsonify(health_status), 200
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@scraping_bp.route('/monitor/stats', methods=['GET'])
+@jwt_required()
+def get_scraping_stats():
+    """Get scraping statistics"""
+    try:
+        from scraping_monitor import ScrapingMonitor
+        
+        days = request.args.get('days', 7, type=int)
+        monitor = ScrapingMonitor()
+        stats = monitor.get_scraping_stats(days)
+        
+        return jsonify(stats), 200
+        
+    except Exception as e:
+        logger.error(f"Stats retrieval failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@scraping_bp.route('/monitor/test-suite', methods=['POST'])
+@jwt_required()
+def run_test_suite():
+    """Run comprehensive scraping test suite"""
+    try:
+        from scraping_monitor import ScrapingMonitor
+        
+        monitor = ScrapingMonitor()
+        test_results = monitor.run_full_test_suite()
+        
+        return jsonify(test_results), 200
+        
+    except Exception as e:
+        logger.error(f"Test suite failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@scraping_bp.route('/monitor/cleanup', methods=['POST'])
+@jwt_required()
+def cleanup_old_data():
+    """Clean up old scraping data"""
+    try:
+        from scraping_monitor import ScrapingMonitor
+        
+        data = request.get_json() or {}
+        days_old = data.get('days_old', 30)
+        
+        monitor = ScrapingMonitor()
+        cleanup_results = monitor.cleanup_old_data(days_old)
+        
+        return jsonify(cleanup_results), 200
+        
+    except Exception as e:
+        logger.error(f"Cleanup failed: {e}")
         return jsonify({'error': str(e)}), 500
