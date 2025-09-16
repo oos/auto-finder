@@ -93,12 +93,17 @@ def test_dashboard():
         return jsonify({'error': str(e)}), 500
 
 @dashboard_bp.route('/overview', methods=['GET'])
+@jwt_required()
 def get_dashboard_overview():
     try:
         print(f"DEBUG: dashboard/overview called")
-        # Temporarily use user ID 1 for testing
-        user_id = 1
-        print(f"DEBUG: using test user_id: {user_id}")
+        user_id = get_jwt_identity()
+        user_id = int(user_id) if user_id else None
+        
+        if not user_id:
+            return jsonify({'error': 'User not authenticated'}), 401
+            
+        print(f"DEBUG: using user_id: {user_id}")
         user = User.query.get(user_id)
         print(f"DEBUG: user found: {user is not None}")
         
@@ -208,9 +213,15 @@ def get_dashboard_overview():
         return jsonify({'error': str(e)}), 500
 
 @dashboard_bp.route('/charts/trends', methods=['GET'])
+@jwt_required()
 def get_trend_charts():
     try:
-        user_id = 1  # Temporarily use test user
+        user_id = get_jwt_identity()
+        user_id = int(user_id) if user_id else None
+        
+        if not user_id:
+            return jsonify({'error': 'User not authenticated'}), 401
+            
         user = User.query.get(user_id)
         
         if not user or not user.settings:
@@ -280,9 +291,15 @@ def get_trend_charts():
         return jsonify({'error': str(e)}), 500
 
 @dashboard_bp.route('/charts/distribution', methods=['GET'])
+@jwt_required()
 def get_distribution_charts():
     try:
-        user_id = 1  # Temporarily use test user
+        user_id = get_jwt_identity()
+        user_id = int(user_id) if user_id else None
+        
+        if not user_id:
+            return jsonify({'error': 'User not authenticated'}), 401
+            
         user = User.query.get(user_id)
         
         if not user or not user.settings:
@@ -411,9 +428,15 @@ def get_distribution_charts():
         return jsonify({'error': str(e)}), 500
 
 @dashboard_bp.route('/alerts', methods=['GET'])
+@jwt_required()
 def get_alerts():
     try:
-        user_id = 1  # Temporarily use test user
+        user_id = get_jwt_identity()
+        user_id = int(user_id) if user_id else None
+        
+        if not user_id:
+            return jsonify({'error': 'User not authenticated'}), 401
+            
         user = User.query.get(user_id)
         
         if not user or not user.settings:

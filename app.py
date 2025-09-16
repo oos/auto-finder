@@ -3,12 +3,25 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 import os
+import logging
+import traceback
 from datetime import datetime
 from dotenv import load_dotenv
 from database import db
 
 # Load environment variables
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('auto_finder.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__, static_folder='build', static_url_path='')
@@ -470,6 +483,152 @@ def fix_historical_listings():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/restart-with-new-ports', methods=['POST'])
+def restart_with_new_ports():
+    """Restart the application with new port configuration"""
+    try:
+        from models import UserSettings
+        
+        # Get current settings
+        settings = UserSettings.query.first()
+        if not settings:
+            return jsonify({'error': 'No user settings found'}), 404
+        
+        current_frontend_port = settings.frontend_port or 3000
+        current_backend_port = settings.backend_port or 5003
+        
+        return jsonify({
+            'message': 'Application restart required to apply new port settings',
+            'current_frontend_port': current_frontend_port,
+            'current_backend_port': current_backend_port,
+            'note': 'Please restart the application manually to apply port changes'
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/database/health', methods=['GET'])
+def database_health():
+    """Check database health and status"""
+    try:
+        from database_manager import DatabaseManager
+        db_manager = DatabaseManager(app)
+        health_status = db_manager.check_database_health()
+        return jsonify(health_status), 200
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/database/migrate', methods=['POST'])
+def run_database_migrations():
+    """Run all pending database migrations"""
+    try:
+        from database_manager import DatabaseManager
+        db_manager = DatabaseManager(app)
+        migration_results = db_manager.run_migrations()
+        return jsonify({
+            'message': 'Database migrations completed',
+            'results': migration_results
+        }), 200
+    except Exception as e:
+        logger.error(f"Database migration failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/database/stats', methods=['GET'])
+def database_stats():
+    """Get database statistics and metrics"""
+    try:
+        from database_manager import DatabaseManager
+        db_manager = DatabaseManager(app)
+        stats = db_manager.get_database_stats()
+        return jsonify(stats), 200
+    except Exception as e:
+        logger.error(f"Database stats failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/system/status', methods=['GET'])
+def system_status():
+    """Get comprehensive system status and health metrics"""
+    try:
+        from database_manager import DatabaseManager
+        import psutil
+        import platform
+        
+        # Database health
+        db_manager = DatabaseManager(app)
+        db_health = db_manager.check_database_health()
+        db_stats = db_manager.get_database_stats()
+        
+        # System metrics
+        system_info = {
+            'platform': platform.platform(),
+            'python_version': platform.python_version(),
+            'cpu_percent': psutil.cpu_percent(interval=1),
+            'memory_percent': psutil.virtual_memory().percent,
+            'disk_percent': psutil.disk_usage('/').percent,
+            'uptime_seconds': int((datetime.utcnow() - datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds())
+        }
+        
+        # Application metrics
+        app_info = {
+            'flask_version': '2.3.3',  # Could be dynamic
+            'environment': 'production' if os.getenv('FLASK_ENV') == 'production' else 'development',
+            'debug_mode': app.debug,
+            'port': get_configured_port(),
+            'database_url': 'configured' if os.getenv('DATABASE_URL') else 'not_set'
+        }
+        
+        # Log recent entries (last 10)
+        try:
+            with open('auto_finder.log', 'r') as f:
+                recent_logs = f.readlines()[-10:]
+        except FileNotFoundError:
+            recent_logs = ['No log file found']
+        
+        return jsonify({
+            'status': 'healthy' if db_health['status'] == 'healthy' else 'degraded',
+            'timestamp': datetime.utcnow().isoformat(),
+            'database': db_health,
+            'database_stats': db_stats,
+            'system': system_info,
+            'application': app_info,
+            'recent_logs': [log.strip() for log in recent_logs]
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"System status check failed: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+@app.route('/api/system/logs', methods=['GET'])
+def get_system_logs():
+    """Get recent application logs"""
+    try:
+        lines = request.args.get('lines', 50, type=int)
+        
+        try:
+            with open('auto_finder.log', 'r') as f:
+                all_logs = f.readlines()
+                recent_logs = all_logs[-lines:] if len(all_logs) > lines else all_logs
+        except FileNotFoundError:
+            return jsonify({
+                'message': 'No log file found',
+                'logs': []
+            }), 200
+        
+        return jsonify({
+            'message': f'Retrieved last {len(recent_logs)} log entries',
+            'logs': [log.strip() for log in recent_logs],
+            'total_lines': len(all_logs)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Log retrieval failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
     # For all other routes, serve the React app
     try:
         return send_from_directory(app.static_folder, 'index.html')
@@ -524,11 +683,77 @@ def fix_historical_listings():
         """
         return html_content, 200
 
+@app.before_request
+def log_request_info():
+    """Log all incoming requests"""
+    logger.info(f"Request: {request.method} {request.url} from {request.remote_addr}")
+
+@app.after_request
+def log_response_info(response):
+    """Log all outgoing responses"""
+    logger.info(f"Response: {response.status_code} for {request.method} {request.url}")
+    return response
+
+@app.errorhandler(400)
+def bad_request(error):
+    logger.warning(f"Bad request: {error}")
+    return jsonify({'error': 'Bad request', 'message': str(error)}), 400
+
+@app.errorhandler(401)
+def unauthorized(error):
+    logger.warning(f"Unauthorized access: {error}")
+    return jsonify({'error': 'Unauthorized', 'message': 'Authentication required'}), 401
+
+@app.errorhandler(403)
+def forbidden(error):
+    logger.warning(f"Forbidden access: {error}")
+    return jsonify({'error': 'Forbidden', 'message': 'Access denied'}), 403
+
+@app.errorhandler(404)
+def not_found(error):
+    logger.warning(f"Not found: {error}")
+    return jsonify({'error': 'Not found', 'message': 'Resource not found'}), 404
+
 @app.errorhandler(500)
 def internal_error(error):
-    return jsonify({'error': 'Internal server error'}), 500
+    logger.error(f"Internal server error: {error}")
+    logger.error(f"Traceback: {traceback.format_exc()}")
+    return jsonify({
+        'error': 'Internal server error', 
+        'message': 'An unexpected error occurred',
+        'timestamp': datetime.utcnow().isoformat()
+    }), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logger.error(f"Unhandled exception: {e}")
+    logger.error(f"Traceback: {traceback.format_exc()}")
+    return jsonify({
+        'error': 'Internal server error',
+        'message': 'An unexpected error occurred',
+        'timestamp': datetime.utcnow().isoformat()
+    }), 500
+
+def get_configured_port():
+    """Get the configured backend port from user settings, fallback to default"""
+    try:
+        with app.app_context():
+            from models import UserSettings
+            # Get the first user's settings (or create default)
+            settings = UserSettings.query.first()
+            if settings and settings.backend_port:
+                return settings.backend_port
+            return 5003  # Default port
+    except Exception as e:
+        print(f"Warning: Could not get configured port, using default: {e}")
+        return 5003
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, host='0.0.0.0', port=5003)
+    
+    # Get configured port from database
+    configured_port = get_configured_port()
+    print(f"🚀 Starting Auto Finder on port {configured_port}")
+    
+    app.run(debug=True, host='0.0.0.0', port=configured_port)

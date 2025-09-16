@@ -7,9 +7,15 @@ from datetime import datetime
 settings_bp = Blueprint('settings', __name__)
 
 @settings_bp.route('/', methods=['GET'])
+@jwt_required()
 def get_settings():
     try:
-        user_id = 2  # Temporarily use test user
+        user_id = get_jwt_identity()
+        user_id = int(user_id) if user_id else None
+        
+        if not user_id:
+            return jsonify({'error': 'User not authenticated'}), 401
+            
         user = User.query.get(user_id)
         
         if not user:
